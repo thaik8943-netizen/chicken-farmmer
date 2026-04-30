@@ -566,6 +566,47 @@ if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
     saveData();
     return msg.reply(`${isLock ? "🔒 Đã khóa" : "🔓 Đã mở khóa"} thành công **${count}** con gà hệ **${rarityStr}**. Những con gà này sẽ không bị bán bởi lệnh \`:sellga\`.`);
 }
+// --- LỆNH: SKIP 45 PHÚT ẤP TRỨNG (:skipaptrung) ---
+if (msg.content === ":skipaptrung") {
+    const cdSkip = 2 * 60 * 60 * 1000; // Cooldown 2 tiếng
+    const skipAmount = 45 * 60 * 1000; // Thời gian skip: 45 phút
+    const skipCost = 500;
+    const now = Date.now();
+
+    // 1. Kiểm tra Cooldown lệnh
+    if (u.lastSkip && now - u.lastSkip < cdSkip) {
+        const remaining = cdSkip - (now - u.lastSkip);
+        return msg.reply(`⏳ Lệnh tăng tốc đang hồi! Vui lòng chờ **${formatTime(remaining)}**.`);
+    }
+
+    // 2. Kiểm tra xem có đang ấp trứng nào không
+    if (!u.dangAp || u.dangAp.length === 0) {
+        return msg.reply("❌ Máy ấp đang trống, không có trứng để tăng tốc!");
+    }
+
+    // 3. Kiểm tra tiền
+    if (u.coins < skipCost) {
+        return msg.reply(`❌ Bạn cần **${skipCost} Xu** để mua bình tăng tốc 45 phút!`);
+    }
+
+    // 4. Thực hiện giảm thời gian
+    u.coins -= skipCost;
+    u.lastSkip = now;
+
+    // Trừ 45 phút cho tất cả các đợt đang có trong máy ấp (nếu bạn cho phép ấp nhiều đợt)
+    // Hoặc chỉ đợt đầu tiên tùy theo cấu trúc code của bạn. 
+    // Ở đây mình trừ cho toàn bộ danh sách đang ấp hiện tại:
+    u.dangAp.forEach(trung => {
+        trung.finishAt -= skipAmount;
+    });
+
+    saveData();
+
+    // Kiểm tra xem sau khi trừ có đợt nào nở luôn không
+    const willHatch = u.dangAp.some(trung => now >= trung.finishAt);
+
+    return msg.reply(`⏩ **TĂNG TỐC THÀNH CÔNG!**\n💰 Chi phí: **${skipCost} Xu**\n⏱️ Đã giảm **45 phút** thời gian chờ cho các trứng đang ấp.\n${willHatch ? "🐣 Một số trứng đã đủ thời gian, hãy nhắn tin tiếp theo để nhận gà!" : "⏳ Trứng vẫn cần thêm thời gian để nở."}`);
+}
 // --- LỆNH: XEM CHUỒNG GÀ PHÂN TRANG ---
 // --- LỆNH: XEM CHUỒNG GÀ (CẬP NHẬT HIỂN THỊ GIÁ TIỀN) ---
 if (msg.content === ":chuonga") {
