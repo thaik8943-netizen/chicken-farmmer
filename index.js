@@ -13,11 +13,6 @@ const MID = ["Ánh_Sáng", "Bóng_Tối", "Hỏa_Ngục", "Băng_Giá", "Sấm_S
 const SUFFIX = ["Kê", "Gà", "Điểu", "Quái", "Thần", "Tướng", "Sĩ", "Binh", "Chủ", "Hậu", "Hoàng", "Vương", "Lão", "Phu", "Sư", "Tổ", "Tộc", "Long", "Lân", "Quy"];
 
 // ================= CƠ SỞ DỮ LIỆU 1000 LOẠI GÀ ĐỘC NHẤT =================
-const PREFIX = [...];
-const MID = [...];
-const SUFFIX = [...];
-
-// --- DÁN HÀM TÍNH GIÁ VÀO ĐÂY ---
 function getChickenPrice(rarity) {
     const r = rarity.toLowerCase();
     if (r.includes("legendary")) return Math.floor(Math.random() * (300 - 200 + 1)) + 200; // 200-300 xu
