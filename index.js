@@ -538,9 +538,9 @@ await chuongMsg.edit(generateChuongEmbed(page));
 try { await reaction.users.remove(user.id); } catch(e) {}
 });
 }
-collector.on('end', () => chuongMsg.reactions.removeAll().catch(() => {}));
+collector.on('end', () => {chuongMsg.reactions.removeAll().catch(() => {}));
+});
 }
-
 // --- LỆNH: BÁN TRỨNG ---
 if (msg.content.startsWith(":selltrung")) {
 const args = msg.content.split(" ");
