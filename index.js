@@ -952,6 +952,8 @@ if (msg.content === ":help") {
         await i.update({ embeds: [updateEmbed] });
     });
 
+    // ... (Các code phía trên của bạn)
+
     collector.on('end', () => {
         const disabledRow = new ActionRowBuilder().addComponents(
             selectMenu.setDisabled(true).setPlaceholder('Menu đã hết hạn')
@@ -959,7 +961,11 @@ if (msg.content === ":help") {
         response.edit({ components: [disabledRow] }).catch(() => {});
     });
     
-    return;
+    return; // Kết thúc lệnh :help
 }
 
+// === DẤU ĐÓNG QUAN TRỌNG NHẤT NẰM Ở ĐÂY ===
+}); // Dấu này để đóng sự kiện client.on('messageCreate', async msg => { ...
+
+// --- CUỐI CÙNG LÀ DÒNG LOGIN ---
 client.login(process.env.TOKEN);
