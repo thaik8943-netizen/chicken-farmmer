@@ -1,3 +1,8 @@
+const http = require('http');
+http.createServer((req, res) => {
+  res.write("Gà đang online!");
+  res.end();
+}).listen(8080);
 require('dotenv').config();
 const { 
     Client, 
@@ -782,6 +787,6 @@ if (msg.content === ":help") {
     return; // Kết thúc lệnh :help
 } // Đóng ngoặc của lệnh :help (nếu có)
 
-}); // <--- ĐÂY LÀ DẤU ĐÓNG QUAN TRỌNG CHO client.on("messageCreate")
+}); 
 
 client.login(process.env.TOKEN);
