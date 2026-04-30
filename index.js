@@ -130,7 +130,16 @@ return false;
 if (no.length > 0) { saveData(); msg.reply(`🐣 **Nở rồi!** Đã thêm ${no.length} gà mới vào chuồng.`); }
 }
 
-if (!u.started && msg.content !== ":start") return msg.reply("🐔 Gõ `:start` ngay!");
+// 1. Tự động kích hoạt 'started' cho người chơi cũ (nếu đã có gà hoặc đã nâng cấp)
+if (!u.started && (u.gaCon.length > 0 || u.lvGa > 0 || u.lvNo > 0 || u.lvAp > 0)) {
+    u.started = true;
+    saveData(); // Lưu lại trạng thái để lần sau không phải check lại
+}
+
+// 2. Chỉ chặn những người thực sự mới (chưa có gì trong tay)
+if (!u.started && msg.content !== ":start") {
+    return msg.reply("🐔 Chào mừng lính mới! Hãy gõ `:start` để nhận con gà đầu tiên nhé!");
+}
 
 // --- ADMIN GIVE ---
 if (msg.content.startsWith(":give")) {
