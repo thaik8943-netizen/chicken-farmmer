@@ -1,84 +1,87 @@
 require('dotenv').config();
-const { Client, GatewayIntentBits, Partials, EmbedBuilder, ActionRowBuilder, StringSelectMenuBuilder, ComponentType } = require('discord.js');
+const { 
+    Client, 
+    GatewayIntentBits, 
+    Partials, 
+    EmbedBuilder, 
+    ActionRowBuilder, 
+    StringSelectMenuBuilder, 
+    ComponentType 
+} = require('discord.js');
 const fs = require('fs');
 
 const client = new Client({
-intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageReactions, GatewayIntentBits.GuildMembers],
-partials: [Partials.Message, Partials.Channel, Partials.Reaction]
+    intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent, GatewayIntentBits.GuildMessageReactions, GatewayIntentBits.GuildMembers],
+    partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// ================= CƠ SỞ DỮ LIỆU 1000 LOẠI GÀ ĐỘC NHẤT =================
+// ================= CƠ SỞ DỮ LIỆU GÀ =================
 const PREFIX = ["Thần", "Thánh", "Cổ", "Vương", "Đế", "Huyền", "Linh", "Ma", "Quỷ", "Phật", "Tiên", "Thú", "Chiến", "Sát", "Hộ", "Pháp", "Long", "Phượng", "Kỳ", "Lân", "Hỏa", "Băng", "Lôi", "Phong", "Thổ"];
 const MID = ["Ánh_Sáng", "Bóng_Tối", "Hỏa_Ngục", "Băng_Giá", "Sấm_Sét", "Cuồng_Phong", "Kim_Cương", "Vàng_Ròng", "Đá_Quý", "Vô_Cực", "Hư_Không", "Tử_Vong", "Sự_Sống", "Hỗn_Mang", "Thanh_Khiết", "Tàn_Bạo", "Dũng_Mãnh", "Nhanh_Nhẹn", "Trường_Sinh", "Bất_Diệt"];
 const SUFFIX = ["Kê", "Gà", "Điểu", "Quái", "Thần", "Tướng", "Sĩ", "Binh", "Chủ", "Hậu", "Hoàng", "Vương", "Lão", "Phu", "Sư", "Tổ", "Tộc", "Long", "Lân", "Quy"];
 
-// ================= CƠ SỞ DỮ LIỆU 1000 LOẠI GÀ ĐỘC NHẤT =================
 function getChickenPrice(rarity) {
     const r = rarity.toLowerCase();
-    if (r.includes("legendary")) return Math.floor(Math.random() * (300 - 200 + 1)) + 200; // 200-300 xu
-    if (r.includes("epic")) return Math.floor(Math.random() * (200 - 100 + 1)) + 100;      // 100-200 xu
-    if (r.includes("rare")) return Math.floor(Math.random() * (100 - 50 + 1)) + 50;        // 50-100 xu
-    return Math.floor(Math.random() * (50 - 10 + 1)) + 10;                                // 10-50 xu (Common)
+    if (r.includes("legendary")) return Math.floor(Math.random() * (300 - 200 + 1)) + 200;
+    if (r.includes("epic")) return Math.floor(Math.random() * (200 - 100 + 1)) + 100;
+    if (r.includes("rare")) return Math.floor(Math.random() * (100 - 50 + 1)) + 50;
+    return Math.floor(Math.random() * (50 - 10 + 1)) + 10;
 }
 
 const GA_LIST = [];
 let nameCounter = 0;
 for (let p of PREFIX) {
-for (let m of MID) {
-for (let s of SUFFIX) {
-if (nameCounter < 1000) {
-let rarity = nameCounter >= 950 ? "Legendary 🟡" : nameCounter >= 800 ? "Epic 🟣" : nameCounter >= 500 ? "Rare 🔵" : "Common ⚪";
-let bonus = 1.5 + (nameCounter * 0.05);
-GA_LIST.push({ name: `🐔_${p}_${m}_${s}_${nameCounter}`, bonus: +bonus.toFixed(2), rarity: rarity });
-nameCounter++;
+    for (let m of MID) {
+        for (let s of SUFFIX) {
+            if (nameCounter < 1000) {
+                let rarity = nameCounter >= 950 ? "Legendary 🟡" : nameCounter >= 800 ? "Epic 🟣" : nameCounter >= 500 ? "Rare 🔵" : "Common ⚪";
+                let bonus = 1.5 + (nameCounter * 0.05);
+                GA_LIST.push({ name: `🐔_${p}_${m}_${s}_${nameCounter}`, bonus: +bonus.toFixed(2), rarity: rarity });
+                nameCounter++;
+            }
+        }
+    }
 }
-}
-}
-}
-
 // ================= DATABASE & UTILS =================
 const DATA_FILE = './data.json';
 let data = {};
-
 if (fs.existsSync(DATA_FILE)) { 
-    try { 
-        data = JSON.parse(fs.readFileSync(DATA_FILE)); 
-    } catch (e) { 
-        console.log("⚠️ Lỗi đọc file data.json, khởi tạo data trống.");
-        data = {}; 
-    } 
-} else {
-    // Nếu chưa có file, tạo file mới với nội dung là một object rỗng {}
-    fs.writeFileSync(DATA_FILE, JSON.stringify({}, null, 2)); 
-    console.log("🆕 Đã tạo file data.json mới.");
+    try { data = JSON.parse(fs.readFileSync(DATA_FILE)); } catch (e) { data = {}; } 
 }
 function saveData() { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+
 function getUser(id) {
-if (!data[id]) {
-data[id] = {
-started: false, thoc: 1000, coins: 500, lvGa: 0, lvNo: 0, lvAp: 0,
-eatToday: 0, lastEatReset: 0, trung: { thuong: 10, bac: 5, vang: 2 },
-gaCon: [], dangAp: [], equipped: null, lastDaily: 0, lastSteal: 0
-};
+    if (!data[id]) {
+        data[id] = {
+            started: false, thoc: 1000, coins: 500, lvGa: 0, lvNo: 0, lvAp: 0,
+            eatToday: 0, lastEatReset: 0, trung: { thuong: 10, bac: 5, vang: 2 },
+            gaCon: [], dangAp: [], equipped: null, lastDaily: 0, lastSteal: 0, lastTrong: 0
+        };
+    }
+    return data[id];
 }
-return data[id];
-}
+
+// ĐÃ THÊM NỘI DUNG CHO HÀM NÀY
 function formatTime(ms) {
-if (ms <= 0) return "Xong!";
-const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
-return `${h > 0 ? h + 'h ' : ''}${m}p ${s}s`;
+    if (ms <= 0) return "Xong!";
+    const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
+    return `${h > 0 ? h + 'h ' : ''}${m}p ${s}s`;
 }
+
+// ĐÃ THÊM NỘI DUNG CHO HÀM NÀY
 function getHint(secret, guess) {
-let res = [], sArr = secret.split(''), gArr = guess.split('');
-for (let i = 0; i < 5; i++) { if (gArr[i] === sArr[i]) { res[i] = '🟢'; sArr[i] = null; gArr[i] = null; } }
-for (let i = 0; i < 5; i++) {
-if (gArr[i]) {
-let idx = sArr.indexOf(gArr[i]);
-if (idx !== -1) { res[i] = '🟡'; sArr[idx] = null; } else { res[i] = '🔴'; }
+    let res = [], sArr = secret.split(''), gArr = guess.split('');
+    for (let i = 0; i < 5; i++) { if (gArr[i] === sArr[i]) { res[i] = '🟢'; sArr[i] = null; gArr[i] = null; } }
+    for (let i = 0; i < 5; i++) {
+        if (gArr[i]) {
+            let idx = sArr.indexOf(gArr[i]);
+            if (idx !== -1) { res[i] = '🟡'; sArr[idx] = null; } else { res[i] = '🔴'; }
+        }
+    }
+    return res.join(' ');
 }
-}
-return res.join(' ');
-}
+
+async function updateTopRoles(guild) { /* Code logic cập nhật role nếu cần */ }
 
 // ================= ROLE AUTO-UPDATE =================
 async function updateTopRoles(guild) {
@@ -130,7 +133,7 @@ const r = getUser(target.id);
 if (type === "xu") r.coins += amt; else if (type === "thoc") r.thoc += amt; else r.trung[type] += amt;
 saveData(); return msg.reply(`🎁 Đã tặng ${amt} ${type} cho <@${target.id}>!`);
 }
-// --- LỆNH: NÂNG CẤP ---
+// --- LỆNH: NÂNG CẤP ĐỒNG BỘ GIÁ LŨY TIẾN ---
 if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":upaptrung") {
     let typeName = "";
     let key = "";
@@ -139,9 +142,9 @@ if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":up
         typeName = "Tỉ lệ trứng hiếm"; 
         key = "lvGa"; 
     }
-    else if (msg.content === ":upthoc") { // Đã đổi từ :upno thành :upthoc
+    else if (msg.content === ":upthoc") { 
         typeName = "Kho thóc"; 
-        key = "lvNo"; // Vẫn giữ key 'lvNo' trong database để không làm mất dữ liệu cũ của người chơi
+        key = "lvNo"; 
     }
     else { 
         typeName = "Máy ấp trứng"; 
@@ -151,14 +154,18 @@ if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":up
     let currentLv = u[key] || 0;
     if (currentLv >= 10) return msg.reply(`✨ **${typeName}** đã đạt cấp tối đa (Lv.10)!`);
 
-    let cost = (currentLv + 1) * 2000; 
-    if (u.coins < cost) return msg.reply(`❌ Bạn thiếu **${(cost - u.coins).toLocaleString()} Coins** để nâng cấp ${typeName}.`);
+    // CÔNG THỨC ĐỒNG BỘ: (Level hiện tại + 1)^2 * 2000
+    let cost = Math.pow(currentLv + 1, 2) * 2000; 
+
+    if (u.coins < cost) {
+        return msg.reply(`❌ Bạn thiếu **${(cost - u.coins).toLocaleString()} Coins** để nâng cấp ${typeName}.\n💰 Giá nâng cấp Lv.${currentLv + 1} là: **${cost.toLocaleString()} Coins**.`);
+    }
 
     u.coins -= cost;
     u[key] = currentLv + 1;
     saveData();
     
-    return msg.reply(`🚀 Chúc mừng! Bạn đã nâng cấp **${typeName}** lên **Lv.${u[key]}**. (Tốn ${cost.toLocaleString()} Coins)`);
+    return msg.reply(`🚀 Nâng cấp thành công! **${typeName}** đã lên **Lv.${u[key]}**.\n💸 Bạn đã chi: **${cost.toLocaleString()} Coins**.`);
 }
 // --- LỆNH: GIAO DỊCH GÀ (TRADE) ---
 if (msg.content.startsWith(":trade")) {
@@ -362,31 +369,25 @@ if (msg.content === ":bxh") {
 // --- CÁC LỆNH KHÁC ---
 // --- LỆNH: XEM DANH SÁCH NÂNG CẤP (GIÁ LŨY TIẾN) ---
 if (msg.content === ":nangcap") {
-    // Công thức: (lv + 1)^2 * 2000
+    // Hàm tính giá nhanh để hiển thị
     const calcCost = (lv) => Math.pow((lv || 0) + 1, 2) * 2000;
-
-    const costGa = calcCost(u.lvGa);
-    const costThoc = calcCost(u.lvNo);
-    const costAp = calcCost(u.lvAp);
 
     const nangCapEmbed = `
 🚀 **TRUNG TÂM CÔNG NGHỆ NÔNG TRẠI**
 ━━━━━━━━━━━━━━━━━━━━
 1️⃣ **Tỉ lệ Trứng (:upga)** - [Lv.${u.lvGa || 0}/10]
-└ Tăng tỉ lệ rơi trứng Bạc/Vàng. 
-└ *Yêu cầu Lv.4 để mở khóa lệnh :tronglua*
-💰 Phí nâng cấp: **${costGa.toLocaleString()} 🪙**
+└ Tăng tỉ lệ rơi trứng Bạc/Vàng khi cho ăn.
+💰 Phí lên Lv.${(u.lvGa || 0) + 1}: **${calcCost(u.lvGa).toLocaleString()} 🪙**
 
 2️⃣ **Kho Thóc (:upthoc)** - [Lv.${u.lvNo || 0}/10]
-└ Tăng giới hạn trữ thóc tối đa.
-💰 Phí nâng cấp: **${costThoc.toLocaleString()} 🪙**
+└ Tăng giới hạn thu hoạch lúa & trữ lượng.
+💰 Phí lên Lv.${(u.lvNo || 0) + 1}: **${calcCost(u.lvNo).toLocaleString()} 🪙**
 
 3️⃣ **Máy Ấp Trứng (:upaptrung)** - [Lv.${u.lvAp || 0}/10]
 └ Tăng may mắn nở ra gà Epic/Legendary.
-💰 Phí nâng cấp: **${costAp.toLocaleString()} 🪙**
+💰 Phí lên Lv.${(u.lvAp || 0) + 1}: **${calcCost(u.lvAp).toLocaleString()} 🪙**
 ━━━━━━━━━━━━━━━━━━━━
-⚠️ *Càng lên cấp cao, chi phí sẽ tăng theo cấp số nhân!*
-👉 *Gõ lệnh tương ứng (Ví dụ: \`:upga\`) để nâng cấp.*`;
+⚠️ *Lưu ý: Giá nâng cấp tăng theo bình phương cấp độ!*`;
     
     return msg.reply(nangCapEmbed);
 }
@@ -395,44 +396,116 @@ if (msg.content === ":shop") {
     const shopEmbed = `
 🏪 **CỬA HÀNG VẬT PHẨM CHICKEN EMPIRE**
 ━━━━━━━━━━━━━━━━━━━━
-📦 **CÁC GÓI TRỨNG GIỐNG:**
-1️⃣ **Gói Trứng Thường** (10 quả): **150 🪙**
-2️⃣ **Gói Trứng Bạc** (5 quả): **400 🪙**
-3️⃣ **Gói Trứng Vàng** (2 quả): **1,000 🪙**
+🥚 **TRỨNG GIỐNG:**
+1️⃣ **Gói Trứng Thường** (1 quả): **100 🪙**
+└ *Tỉ lệ nở gà Common cực cao.*
 
-🌾 **VẬT PHẨM HỖ TRỢ:**
-4️⃣ **Bao Thóc Đại** (1,000🌾): **500 🪙**
-5️⃣ **Bùa May Mắn** (Tăng tỉ lệ nở gà Rare): **2,500 🪙** (Coming Soon)
+🌾 **LƯƠNG THỰC (GIÁ ĐẮT):**
+2️⃣ **Bao Thóc Nhỏ** (100🌾): **5,000 🪙**
+3️⃣ **Bao Thóc Lớn** (500🌾): **22,000 🪙**
+4️⃣ **Kho Thóc Dự Trữ** (1,000🌾): **40,000 🪙**
 
 ━━━━━━━━━━━━━━━━━━━━
 👉 *Dùng \`:buy <số thứ tự> <số lượng>\` để mua hàng!*
-*Ví dụ: \`:buy 1 2\` để mua 2 Gói Trứng Thường (20 quả).*`;
+*Ví dụ: \`:buy 1 10\` để mua 10 quả trứng thường.*`;
     return msg.reply(shopEmbed);
 }
-if (msg.content.startsWith(":aptrung")) {
+// --- LỆNH: MUA ĐỒ (BUY) ---
+if (msg.content.startsWith(":buy")) {
     const args = msg.content.split(" ");
-    const t = args[1]; // loại trứng
-    const aStr = args[2]; // số lượng
-    const a = parseInt(aStr);
+    const itemNum = parseInt(args[1]); // Số thứ tự món đồ
+    const quantity = parseInt(args[2]) || 1; // Số lượng muốn mua (mặc định là 1)
 
-    // THỜI GIAN MỚI: 15p (900k ms), 1h (3.6m ms), 2h (7.2m ms)
-    const tm = { 
-        thuong: 900000,   // 15 * 60 * 1000
-        bac: 3600000,    // 60 * 60 * 1000
-        vang: 7200000     // 120 * 60 * 1000
-    };
-
-    if (!tm[t] || isNaN(a) || u.trung[t] < a) {
-        return msg.reply("❌ Lỗi cú pháp hoặc bạn không đủ trứng! \nHD: `:aptrung <thuong/bac/vang> <số lượng>`");
+    if (isNaN(itemNum) || quantity <= 0) {
+        return msg.reply("❌ Cú pháp: `:buy <số thứ tự> <số lượng>`\nVí dụ: `:buy 1 5` để mua 5 quả trứng.");
     }
 
-    u.trung[t] -= a;
-    u.dangAp.push({ type: t, amount: a, finishAt: now + tm[t] });
+    let totalCost = 0;
+    let itemName = "";
+
+    // Định nghĩa giá cả và món đồ
+    if (itemNum === 1) { // Trứng thường
+        itemName = "Trứng Thường";
+        totalCost = 100 * quantity;
+    } else if (itemNum === 2) { // 100 Thóc
+        itemName = "100 Thóc";
+        totalCost = 5000 * quantity;
+    } else if (itemNum === 3) { // 500 Thóc
+        itemName = "500 Thóc";
+        totalCost = 22000 * quantity;
+    } else if (itemNum === 4) { // 1000 Thóc
+        itemName = "1000 Thóc";
+        totalCost = 40000 * quantity;
+    } else {
+        return msg.reply("❌ Không tìm thấy món đồ này trong Shop! Hãy xem lại `:shop`.");
+    }
+
+    // Kiểm tra tiền của người dùng
+    if (u.coins < totalCost) {
+        return msg.reply(`❌ Bạn cần **${totalCost.toLocaleString()} Coins** nhưng hiện chỉ có **${u.coins.toLocaleString()} Coins**.`);
+    }
+
+    // Thực hiện giao dịch
+    u.coins -= totalCost;
+    
+    if (itemNum === 1) {
+        u.trung.thuong += quantity;
+    } else if (itemNum === 2) {
+        u.thoc += 100 * quantity;
+    } else if (itemNum === 3) {
+        u.thoc += 500 * quantity;
+    } else if (itemNum === 4) {
+        u.thoc += 1000 * quantity;
+    }
+
     saveData();
-
-    return msg.reply(`🥚 Đang ấp **${a}** trứng **${t}**. Sẽ nở sau: **${formatTime(tm[t])}**`);
+    return msg.reply(`✅ Giao dịch thành công!\n🛒 Bạn đã mua: **${quantity}x ${itemName}**\n💰 Tổng chi: **${totalCost.toLocaleString()} Coins**.`);
 }
+//---ẤP TRỨNG----------
+if (msg.content.startsWith(":aptrung")) {
+    const args = msg.content.split(" ");
+    const t = args[1]; // loại trứng: thuong, bac, vang
+    const a = parseInt(args[2]); // số lượng
 
+    // 1. Kiểm tra cấu trúc lệnh
+    const tm = { 
+        thuong: 900000,   // 15 phút
+        bac: 3600000,    // 1 giờ
+        vang: 7200000     // 2 giờ
+    };
+
+    if (!tm[t] || isNaN(a) || a <= 0) {
+        return msg.reply("❌ Cú pháp: `:aptrung <thuong/bac/vang> <số lượng>`");
+    }
+
+    // 2. Kiểm tra xem máy ấp có đang bận không (Bắt buộc chờ hết mới được ấp tiếp)
+    if (u.dangAp && u.dangAp.length > 0) {
+        const waiting = u.dangAp[0].finishAt - now;
+        return msg.reply(`🚫 **Máy ấp đang bận!** Bạn phải chờ lượt trứng cũ nở hết mới có thể bỏ đợt mới vào.\n⏳ Còn lại: **${formatTime(waiting)}**`);
+    }
+
+    // 3. Giới hạn tối đa 20 quả mỗi lần ấp
+    if (a > 20) {
+        return msg.reply("❌ Mỗi lần bạn chỉ có thể bỏ tối đa **20 quả trứng** vào máy ấp!");
+    }
+
+    // 4. Kiểm tra số dư trứng trong kho
+    if (u.trung[t] < a) {
+        return msg.reply(`❌ Bạn không đủ trứng **${t}** (Hiện có: ${u.trung[t]} quả).`);
+    }
+
+    // 5. Bắt đầu ấp
+    u.trung[t] -= a;
+    u.dangAp.push({ 
+        type: t, 
+        amount: a, 
+        finishAt: now + tm[t] 
+    });
+
+    saveData();
+    return msg.reply(`🥚 Đã bỏ **${a}** quả trứng **${t}** vào máy.\n⏱️ Thời gian chờ: **${formatTime(tm[t])}**.\n⚠️ *Lưu ý: Bạn không thể ấp thêm cho đến khi đợt này nở xong!*`);
+}
+//----BÁN GÀ-----------
 if (msg.content.startsWith(":sellga")) {
     const args = msg.content.split(" ");
     const r = args[1];
@@ -489,57 +562,49 @@ if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
     return msg.reply(`${isLock ? "🔒 Đã khóa" : "🔓 Đã mở khóa"} thành công **${count}** con gà hệ **${rarityStr}**. Những con gà này sẽ không bị bán bởi lệnh \`:sellga\`.`);
 }
 // --- LỆNH: XEM CHUỒNG GÀ PHÂN TRANG ---
+// --- LỆNH: XEM CHUỒNG GÀ (CẬP NHẬT HIỂN THỊ GIÁ TIỀN) ---
 if (msg.content === ":chuonga") {
     if (u.gaCon.length === 0) return msg.reply("🏚️ Chuồng trống hoắc à!");
-
-    const pageSize = 10; 
+    
+    const pageSize = 10;
     let page = 0;
     const totalPages = Math.ceil(u.gaCon.length / pageSize);
 
     const generateChuongEmbed = (p) => {
         const start = p * pageSize;
-        const end = start + pageSize;
-        const chickens = u.gaCon.slice(start, end);
-
-        // --- ĐÂY LÀ ĐOẠN BẠN CẦN THAY THẾ ---
+        const chickens = u.gaCon.slice(start, start + pageSize);
+        
+        // Tạo danh sách gà kèm giá tiền
         let list = chickens.map((g, i) => {
-            let priceRange = "";
-            const r = g.rarity.toLowerCase();
-            if (r.includes("legendary")) priceRange = "200-300";
-            else if (r.includes("epic")) priceRange = "100-200";
-            else if (r.includes("rare")) priceRange = "50-100";
-            else priceRange = "10-50";
-
-            return `${start + i + 1}. **${g.name}** [${g.rarity}]\n└ 💰 Ước tính: **${priceRange} 🪙** | Bonus: x${g.bonus} ${g.locked ? "🔒" : ""}`;
+            // Tính giá tiền dựa trên hàm getChickenPrice đã có ở đầu code
+            // Vì giá là random nên ở đây ta sẽ hiển thị mức trung bình hoặc lấy trực tiếp từ hàm
+            const price = getChickenPrice(g.rarity); 
+            const lockIcon = g.locked ? "🔒" : "";
+            
+            return `${start + i + 1}. **${g.name}**\n   └ 🏷️ Hệ: ${g.rarity} | 💰 Giá: **${price}** Xu ${lockIcon}`;
         }).join("\n");
-        // ------------------------------------
 
-        return `🏡 **CHUỒNG GÀ CỦA ${msg.author.username}** (Trang ${p + 1}/${totalPages})\n━━━━━━━━━━━━━━━━━━━━\n${list}\n━━━━━━━━━━━━━━━━━━━━\n*Dùng ⬅️ ➡️ để chuyển trang. Gõ \`:equip <tên>\` để chọn gà chiến!*`;
+        return `🏡 **CHUỒNG GÀ CỦA ${msg.author.username}** (Trang ${p + 1}/${totalPages})\n━━━━━━━━━━━━━━━━━━━━\n${list}\n━━━━━━━━━━━━━━━━━━━━\n*Dùng \`:sellga <hệ>\` để bán gà lấy xu!*`;
     };
 
-    // ... (Phần code reaction phía dưới giữ nguyên)
-}
-
-const chuongMsg = await msg.reply(generateChuongEmbed(page));
-if (totalPages > 1) {
-await chuongMsg.react('⬅️');
-await chuongMsg.react('➡️');
-
-const filter = (reaction, user) => ['⬅️', '➡️'].includes(reaction.emoji.name) && user.id === msg.author.id;
-const collector = chuongMsg.createReactionCollector({ filter, time: 120000 });
-
-collector.on('collect', async (reaction, user) => {
-if (reaction.emoji.name === '➡️') {
-page = (page + 1) % totalPages;
-} else {
-page = (page - 1 + totalPages) % totalPages;
-}
-await chuongMsg.edit(generateChuongEmbed(page));
-try { await reaction.users.remove(user.id); } catch(e) {}
-});
-collector.on('end', () => {
-chuongMsg.reactions.removeAll().catch(() => {});
-});
+    const chuongMsg = await msg.reply(generateChuongEmbed(page));
+    
+    if (totalPages > 1) {
+        await chuongMsg.react('⬅️'); 
+        await chuongMsg.react('➡️');
+        
+        const filter = (reaction, user) => ['⬅️', '➡️'].includes(reaction.emoji.name) && user.id === msg.author.id;
+        const collector = chuongMsg.createReactionCollector({ filter, time: 60000 });
+        
+        collector.on('collect', async (reaction, user) => {
+            if (reaction.emoji.name === '➡️') page = (page + 1) % totalPages;
+            else page = (page - 1 + totalPages) % totalPages;
+            
+            await chuongMsg.edit(generateChuongEmbed(page));
+            try { await reaction.users.remove(user.id); } catch(e) {}
+        });
+    }
+    return;
 }
 // --- LỆNH: BÁN TRỨNG ---
 if (msg.content.startsWith(":selltrung")) {
@@ -626,65 +691,37 @@ if (msg.content === ":tronglua") {
 
     return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
 }
-// --- HỆ THỐNG MENU HELP SIÊU NÂNG CẤP ---
+// --- HỆ THỐNG MENU HELP SIÊU NÂNG CẤP (Bản Sửa Lỗi) ---
 if (msg.content === ":help") {
-    // Tạo Menu chọn danh mục
-    const row = new ActionRowBuilder()
-        .addComponents(
-            new StringSelectMenuBuilder()
-                .setCustomId('help_menu')
-                .setPlaceholder('📂 Chọn danh mục bạn muốn tìm hiểu...')
-                .addOptions([
-                    { 
-                        label: 'Nông Trại Cơ Bản', 
-                        description: 'Khởi đầu, nhận quà hàng ngày và thông tin cá nhân.', 
-                        value: 'basic', 
-                        emoji: '🚜' 
-                    },
-                    { 
-                        label: 'Nuôi Dưỡng & Tỉ Lệ', 
-                        description: 'Cách cho ăn và bí kíp tìm trứng hiếm.', 
-                        value: 'feed', 
-                        emoji: '🌾' 
-                    },
-                    { 
-                        label: 'Ấp Trứng & Quản Lý', 
-                        description: 'Thời gian ấp và túi trứng của bạn.', 
-                        value: 'hatch', 
-                        emoji: '🐣' 
-                    },
-                    { 
-                        label: 'Chuồng Gà & Nâng Cấp', 
-                        description: 'Xem danh sách gà, bán gà và nâng cấp công trình.', 
-                        value: 'farm', 
-                        emoji: '🏡' 
-                    },
-                    { 
-                        label: 'Minigame Trộm Gà', 
-                        description: 'Đột nhập trại hàng xóm để bẻ khóa lấy gà.', 
-                        value: 'steal', 
-                        emoji: '🥷' 
-                    },
-                ]),
-        );
+    // 1. Tạo Menu
+    const selectMenu = new StringSelectMenuBuilder()
+        .setCustomId('help_menu')
+        .setPlaceholder('📂 Chọn danh mục bạn muốn tìm hiểu...')
+        .addOptions([
+            { label: 'Nông Trại Cơ Bản', description: 'Khởi đầu và thông tin cá nhân.', value: 'basic', emoji: '🚜' },
+            { label: 'Nuôi Dưỡng & Tỉ Lệ', description: 'Cách cho ăn và tìm trứng hiếm.', value: 'feed', emoji: '🌾' },
+            { label: 'Ấp Trứng & Quản Lý', description: 'Thời gian ấp và túi trứng.', value: 'hatch', emoji: '🐣' },
+            { label: 'Chuồng Gà & Nâng Cấp', description: 'Xem danh sách và nâng cấp.', value: 'farm', emoji: '🏡' },
+            { label: 'Minigame Trộm Gà', description: 'Đột nhập trại hàng xóm.', value: 'steal', emoji: '🥷' },
+        ]);
 
-    // Embed chào mừng ban đầu
+    const row = new ActionRowBuilder().addComponents(selectMenu);
+
+    // 2. Embed chào mừng
     const helpEmbed = new EmbedBuilder()
         .setTitle("📖 TRUNG TÂM HƯỚNG DẪN CHICKEN EMPIRE")
-        .setDescription("Chào mừng chủ trang trại! Hãy chọn một danh mục trong thực đơn bên dưới để xem chi tiết các câu lệnh tương ứng.")
-        .addFields(
-            { name: '✨ Mẹo nhỏ', value: 'Hãy chăm chỉ `:daily` mỗi 2 tiếng để không bị hết thóc nhé!' }
-        )
+        .setDescription("Chào mừng chủ trang trại! Hãy chọn một danh mục trong thực đơn bên dưới để xem chi tiết.")
+        .addFields({ name: '✨ Mẹo nhỏ', value: 'Hãy chăm chỉ `:daily` mỗi 2 tiếng để không bị hết thóc nhé!' })
         .setThumbnail(client.user.displayAvatarURL())
         .setColor("#FFD700")
-        .setFooter({ text: "Hệ thống hỗ trợ tự động • 2026", iconURL: msg.author.displayAvatarURL() });
+        .setFooter({ text: `Yêu cầu bởi ${msg.author.username}`, iconURL: msg.author.displayAvatarURL() });
 
     const response = await msg.reply({ embeds: [helpEmbed], components: [row] });
 
-    // Bộ thu thập tương tác (Collector)
+    // 3. Collector
     const collector = response.createMessageComponentCollector({ 
         componentType: ComponentType.StringSelect, 
-        time: 60000 // Menu tồn tại trong 60 giây
+        time: 60000 
     });
 
     collector.on('collect', async i => {
@@ -696,40 +733,30 @@ if (msg.content === ":help") {
         let desc = "";
         let color = "#00FF00";
 
-        // Xử lý nội dung hiển thị dựa trên lựa chọn
         switch (i.values[0]) {
             case 'basic':
                 title = "🚜 Nông Trại Cơ Bản";
-                desc = "• `:start`: Khởi tạo nông trại lần đầu.\n" +
-                       "• `:daily`: Nhận 500 thóc (Hồi sau **2 tiếng**).\n" +
-                       "• `:thongtin`: Xem ví tiền, cấp độ và gà đại diện.\n" +
-                       "• `:bxh`: Xem bảng xếp hạng đại gia.";
+                desc = "• `:start`: Khởi tạo nông trại.\n• `:daily`: Nhận 500 thóc (Hồi 2h).\n• `:thongtin`: Xem ví tiền & cấp độ.\n• `:bxh`: Bảng xếp hạng.";
                 break;
             case 'feed':
                 title = "🌾 Nuôi Dưỡng & Tỉ Lệ";
-                desc = "• `:chogaan <số/all>`: Dùng 50 thóc/lần.\n" +
-                       "• **Tỷ lệ nhận trứng:**\n" +
-                       "  - ⚪ Trứng Thường: 93%\n" +
-                       "  - 🔘 Trứng Bạc: 6%\n" +
-                       "  - 🟡 Trứng Vàng: 1%";
+                desc = "• `:chogaan <số>`: Dùng 50 thóc/lần.\n• **Tỷ lệ trứng:**\n  - ⚪ Thường: 93%\n  - 🔘 Bạc: 6%\n  - 🟡 Vàng: 1%";
+                color = "#FFA500";
                 break;
             case 'hatch':
                 title = "🐣 Ấp Trứng & Quản Lý";
-                desc = "• `:tuitrungga`: Xem số lượng trứng bạn đang có.\n" +
-                       "• `:aptrung <loại> <số>`: Bắt đầu ấp trứng.\n" +
-                       "• `:thoigianap`: Kiểm tra thời gian còn lại (Ghi rõ giờ/phút/giây).";
+                desc = "• `:tuitrungga`: Xem trứng đang có.\n• `:aptrung <loại> <số>`: Bắt đầu ấp.\n• `:thoigianap`: Kiểm tra thời gian nở.";
+                color = "#FFFF00";
                 break;
             case 'farm':
                 title = "🏡 Chuồng Gà & Nâng Cấp";
-                desc = "• `:chuonga`: Danh sách gà đang sở hữu (Hỗ trợ phân trang).\n" +
-                       "• `:sellga <hệ>`: Bán bớt gà để lấy Xu.\n" +
-                       "• `:nangcap`: Nâng cấp kho, chuồng và máy ấp.";
+                desc = "• `:chuonga`: Danh sách gà sở hữu.\n• `:sellga <hệ>`: Bán gà lấy Xu.\n• `:nangcap`: Nâng cấp máy ấp/chuồng.";
+                color = "#ADFF2F";
                 break;
             case 'steal':
                 title = "🥷 Minigame Trộm Gà";
-                desc = "• `:tromga @user`: Thử vận may đột nhập trại người khác.\n" +
-                       "• **Thắng:** Lấy được 1 gà ngẫu nhiên.\n" +
-                       "• **Thua:** Bị phạt 200 Xu và bị chó đuổi.";
+                desc = "• `:tromga @user`: Đột nhập trại người khác.\n• **Thắng:** Lấy 1 gà ngẫu nhiên.\n• **Thua:** Phạt 200 Xu.";
+                color = "#FF0000";
                 break;
         }
 
@@ -743,10 +770,18 @@ if (msg.content === ":help") {
     });
 
     collector.on('end', () => {
-        // Vô hiệu hóa menu sau khi hết thời gian
-        row.components[0].setDisabled(true);
-        response.edit({ components: [row] }).catch(() => {});
+        // Vô hiệu hóa menu bằng cách setDisabled trực tiếp vào component
+        const disabledRow = new ActionRowBuilder().addComponents(
+            selectMenu.setDisabled(true).setPlaceholder('Menu đã hết hạn')
+        );
+        response.edit({ components: [disabledRow] }).catch(() => {});
     });
-}
+    
+    // ... (Các lệnh :tronglua, :help của bạn)
+
+    return; // Kết thúc lệnh :help
+} // Đóng ngoặc của lệnh :help (nếu có)
+
+}); // <--- ĐÂY LÀ DẤU ĐÓNG QUAN TRỌNG CHO client.on("messageCreate")
 
 client.login(process.env.TOKEN);
