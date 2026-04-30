@@ -11,7 +11,10 @@ const {
     EmbedBuilder, 
     ActionRowBuilder, 
     StringSelectMenuBuilder, 
-    ComponentType 
+    ActionRowBuilder, 
+    ButtonBuilder, 
+    ButtonStyle,
+    ComponentType,
 } = require('discord.js');
 const fs = require('fs');
 
@@ -224,6 +227,116 @@ if (msg.content.startsWith(":trade")) {
     collector.on('end', (collected, reason) => {
         if (reason === 'time') tradeInquiry.reply("⏰ Giao dịch hết thời gian chờ.");
         tradeInquiry.reactions.removeAll().catch(() => {});
+    });
+}
+// --- TÍNH NĂNG ĐÁ GÀ (PVP) ---
+if (msg.content.startsWith(":daga")) {
+    const p1 = msg.author;
+    const p2 = msg.mentions.users.first();
+
+    // 1. Kiểm tra điều kiện
+    if (!p2 || p2.id === p1.id || p2.bot) return msg.reply("❌ Bạn cần tag một người chơi khác để thách đấu!");
+    
+    const u1 = getUser(p1.id);
+    const u2 = getUser(p2.id);
+
+    if (!u2.started) return msg.reply("❌ Đối thủ của bạn chưa bắt đầu hành trình nuôi gà!");
+    if (!u1.equipped || !u2.equipped) return msg.reply("❌ Cả hai đều phải trang bị gà chiến (`:equip`) trước khi đá!");
+    if (u1.coins < 200 || u2.coins < 200) return msg.reply("❌ Cả hai cần tối thiểu 200 Xu để tham gia (phòng trường hợp gà bị thương cần chữa trị)!");
+
+    // 2. Lời mời thách đấu
+    const challengeEmbed = new EmbedBuilder()
+        .setTitle("⚔️ THÁCH ĐẤU ĐÁ GÀ")
+        .setDescription(`<@${p1.id}> đem con gà **${u1.equipped.name}** thách đấu với **${u2.equipped.name}** của <@${p2.id}>!\n\n**Mức cược:** Người thua mất 200 xu viện phí.\n**Phần thưởng:** 200 Thóc & 100 Xu.`)
+        .setColor("#FF4500");
+
+    const rowAccept = new ActionRowBuilder().addComponents(
+        new ButtonBuilder().setCustomId('accept_daga').setLabel('Chấp Nhận').setStyle(ButtonStyle.Success),
+        new ButtonBuilder().setCustomId('decline_daga').setLabel('Từ Chối').setStyle(ButtonStyle.Danger)
+    );
+
+    const reply = await msg.reply({ embeds: [challengeEmbed], components: [rowAccept] });
+
+    // 3. Đợi đối thủ đồng ý
+    const collectorAccept = reply.createMessageComponentCollector({ 
+        filter: i => i.user.id === p2.id, 
+        time: 30000, 
+        max: 1 
+    });
+
+    collectorAccept.on('collect', async i => {
+        if (i.customId === 'decline_daga') {
+            return i.update({ content: "🚫 Thách đấu đã bị từ chối.", embeds: [], components: [] });
+        }
+
+        // Bắt đầu trận đấu
+        let turn = p1.id; // P1 đi trước
+        let scores = { [p1.id]: 0, [p2.id]: 0 };
+        const maxScore = 3;
+
+        const updateGame = async (interaction, log) => {
+            const gameEmbed = new EmbedBuilder()
+                .setTitle("🏟️ TRƯỜNG GÀ ĐANG RỰC LỬA")
+                .setDescription(`${log}\n\n**Tỉ số:**\n🔴 <@${p1.id}>: ${"⭐".repeat(scores[p1.id])}\n🔵 <@${p2.id}>: ${"⭐".repeat(scores[p2.id])}`)
+                .addFields({ name: "Lượt của", value: `<@${turn}>` })
+                .setColor(turn === p1.id ? "#FF0000" : "#0000FF");
+
+            const rowKick = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId('kick_action').setLabel('ĐÁ!').setStyle(ButtonStyle.Primary)
+            );
+
+            await interaction.update({ embeds: [gameEmbed], components: [rowKick] });
+        };
+
+        // Gửi giao diện trận đấu đầu tiên
+        await updateGame(i, `🥊 Trận đấu bắt đầu! <@${p1.id}> ra đòn trước.`);
+
+        const gameCollector = reply.createMessageComponentCollector({
+            componentType: ComponentType.Button,
+            time: 60000
+        });
+
+        gameCollector.on('collect', async gi => {
+            if (gi.user.id !== turn) {
+                return gi.reply({ content: "⏳ Chưa đến lượt bạn!", ephemeral: true });
+            }
+
+            const isHit = Math.random() < 0.5; // 50% tỉ lệ đá trúng
+            let log = "";
+
+            if (isHit) {
+                scores[turn]++;
+                log = `💥 **Cú đá hiểm hóc!** Gà của <@${turn}> đã đá trúng đối thủ!`;
+            } else {
+                log = `🌬️ **Hụt rồi!** Con gà của <@${turn}> vừa đá vào không khí.`;
+            }
+
+            // Kiểm tra thắng cuộc
+            if (scores[turn] >= maxScore) {
+                const winnerId = turn;
+                const loserId = turn === p1.id ? p2.id : p1.id;
+                
+                const winU = getUser(winnerId);
+                const loseU = getUser(loserId);
+
+                winU.thoc += 200;
+                winU.coins += 100;
+                loseU.coins -= 200;
+                saveData();
+
+                gameCollector.stop();
+                const winEmbed = new EmbedBuilder()
+                    .setTitle("🏆 CHIẾN THẮNG THUYẾT PHỤC")
+                    .setDescription(`Chúc mừng <@${winnerId}> đã thắng cuộc!\n\n🎁 **Phần thưởng:** +200 Thóc, +100 Xu\n🚑 **Đối thủ:** <@${loserId}> mất 200 Xu viện phí.`)
+                    .setColor("#FFD700");
+
+                return gi.update({ embeds: [winEmbed], components: [] });
+            }
+
+            // Đổi lượt
+            turn = turn === p1.id ? p2.id : p1.id;
+            await updateGame(gi, log);
+        });
     });
 }
 // --- LỆNH: TÚI TRỨNG ---
@@ -737,7 +850,7 @@ if (msg.content === ":tronglua") {
 
     return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
 }
-// --- HỆ THỐNG MENU HELP SIÊU NÂNG CẤP (Bản Sửa Lỗi) ---
+// --- HỆ THỐNG MENU HELP SIÊU NÂNG CẤP (Bản Cập Nhật PVP & Trade) ---
 if (msg.content === ":help") {
     // 1. Tạo Menu
     const selectMenu = new StringSelectMenuBuilder()
@@ -748,6 +861,7 @@ if (msg.content === ":help") {
             { label: 'Nuôi Dưỡng & Tỉ Lệ', description: 'Cách cho ăn và tìm trứng hiếm.', value: 'feed', emoji: '🌾' },
             { label: 'Ấp Trứng & Quản Lý', description: 'Thời gian ấp và túi trứng.', value: 'hatch', emoji: '🐣' },
             { label: 'Chuồng Gà & Nâng Cấp', description: 'Xem danh sách và nâng cấp.', value: 'farm', emoji: '🏡' },
+            { label: 'Giao Dịch & Đối Kháng', description: 'Trade gà và Đá gà (PVP).', value: 'pvp_trade', emoji: '⚔️' }, // MỤC MỚI
             { label: 'Minigame Trộm Gà', description: 'Đột nhập trại hàng xóm.', value: 'steal', emoji: '🥷' },
         ]);
 
@@ -791,13 +905,18 @@ if (msg.content === ":help") {
                 break;
             case 'hatch':
                 title = "🐣 Ấp Trứng & Quản Lý";
-                desc = "• `:tuitrungga`: Xem trứng đang có.\n• `:aptrung <loại> <số>`: Bắt đầu ấp.\n• `:thoigianap`: Kiểm tra thời gian nở.\n• `:skipaptrung`: Bỏ qua 45p ấp trứng với giá 500xu.";
+                desc = "• `:tuitrungga`: Xem trứng đang có.\n• `:aptrung <loại> <số>`: Bắt đầu ấp.\n• `:thoigianap`: Kiểm tra thời gian nở.\n• `:skipaptrung`: Giảm 45p ấp (500xu, hồi 2h).";
                 color = "#FFFF00";
                 break;
             case 'farm':
                 title = "🏡 Chuồng Gà & Nâng Cấp";
-                desc = "• `:chuonga`: Danh sách gà sở hữu.\n• `:sellga <hệ>`: Bán gà lấy Xu.\n• `:nangcap`: Nâng cấp máy ấp/chuồng.";
+                desc = "• `:chuonga`: Danh sách gà sở hữu.\n• `:sellga <hệ>`: Bán gà lấy Xu.\n• `:lockga/unlockga`: Khóa gà tránh bán nhầm.\n• `:nangcap`: Nâng cấp máy ấp/chuồng.";
                 color = "#ADFF2F";
+                break;
+            case 'pvp_trade': // LOGIC MỚI
+                title = "⚔️ Giao Dịch & Đối Kháng";
+                desc = "🤝 **Giao Dịch:**\n• `:trade @user <tên gà>`: Tặng gà cho người khác.\n\n🥊 **Đá Gà (PVP):**\n• `:equip <tên gà>`: Chọn gà ra trận.\n• `:daga @user`: Thách đấu đá gà thay phiên.\n• **Thắng:** +200 Thóc, +100 Xu.\n• **Thua:** -200 Xu (viện phí).";
+                color = "#E91E63";
                 break;
             case 'steal':
                 title = "🥷 Minigame Trộm Gà";
@@ -816,18 +935,13 @@ if (msg.content === ":help") {
     });
 
     collector.on('end', () => {
-        // Vô hiệu hóa menu bằng cách setDisabled trực tiếp vào component
         const disabledRow = new ActionRowBuilder().addComponents(
             selectMenu.setDisabled(true).setPlaceholder('Menu đã hết hạn')
         );
         response.edit({ components: [disabledRow] }).catch(() => {});
     });
     
-    // ... (Các lệnh :tronglua, :help của bạn)
-
-    return; // Kết thúc lệnh :help
-} // Đóng ngoặc của lệnh :help (nếu có)
-
-}); 
+    return;
+}
 
 client.login(process.env.TOKEN);
