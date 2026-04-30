@@ -10,8 +10,7 @@ const {
     Partials, 
     EmbedBuilder, 
     ActionRowBuilder, 
-    StringSelectMenuBuilder, 
-    ActionRowBuilder, 
+    StringSelectMenuBuilder,  
     ButtonBuilder, 
     ButtonStyle,
     ComponentType,
@@ -130,17 +129,29 @@ return false;
 if (no.length > 0) { saveData(); msg.reply(`🐣 **Nở rồi!** Đã thêm ${no.length} gà mới vào chuồng.`); }
 }
 
-// 1. Tự động kích hoạt 'started' cho người chơi cũ (nếu đã có gà hoặc đã nâng cấp)
-if (!u.started && (u.gaCon.length > 0 || u.lvGa > 0 || u.lvNo > 0 || u.lvAp > 0)) {
+// --- LỆNH: BẮT ĐẦU (:start) ---
+if (msg.content === ":start") {
+    if (u.started && u.gaCon.length > 0) {
+        return msg.reply("🌾 Bạn đã sở hữu trang trại rồi, đừng bắt đầu lại từ đầu chứ!");
+    }
+
+    // Khởi tạo người chơi mới
     u.started = true;
-    saveData(); // Lưu lại trạng thái để lần sau không phải check lại
-}
+    u.coins = 500;
+    u.thoc = 1000;
+    
+    // Tặng con gà đầu tiên (Lấy con gà đầu tiên trong danh sách Common)
+    const firstChicken = GA_LIST[0]; 
+    u.gaCon.push({ 
+        ...firstChicken, 
+        id: Date.now(), 
+        locked: false 
+    });
 
-// 2. Chỉ chặn những người thực sự mới (chưa có gì trong tay)
-if (!u.started && msg.content !== ":start") {
-    return msg.reply("🐔 Chào mừng lính mới! Hãy gõ `:start` để nhận con gà đầu tiên nhé!");
+    saveData();
+    
+    return msg.reply("🎉 **CHÚC MỪNG!** Bạn đã nhận được mảnh đất đầu tiên và **1 con gà mặc định**.\n👉 Gõ `:thongtin` để xem trang trại hoặc `:chogaan` để bắt đầu kiếm trứng nhé!");
 }
-
 // --- ADMIN GIVE ---
 if (msg.content.startsWith(":give")) {
 if (msg.author.id !== "873867371419422742") return msg.reply("❌ Quyền lực này không thuộc về bạn!");
@@ -657,8 +668,6 @@ if (msg.content.startsWith(":sellga")) {
     saveData();
     return msg.reply(`💰 Đã bán **${canSell.length}** gà hệ ${r}. Thu về tổng cộng **${totalMoney.toLocaleString()} Coins**!\n(Đã giữ lại ${lockedCount} con đang khóa)`);
 }
-
-if (msg.content === ":start") { u.started = true; u.gaCon.push(GA_LIST[0]); saveData(); msg.reply("🎊 Bắt đầu!"); }
 if (msg.content === ":daily") {
 if (now - u.lastDaily < 7200000) return msg.reply("⏳ Chờ 2h!");
 u.thoc += 500; u.lastDaily = now; saveData(); msg.reply("🌾 +500 Thóc!");
