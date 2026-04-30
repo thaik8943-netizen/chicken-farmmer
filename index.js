@@ -791,7 +791,7 @@ if (msg.content === ":help") {
                 break;
             case 'hatch':
                 title = "🐣 Ấp Trứng & Quản Lý";
-                desc = "• `:tuitrungga`: Xem trứng đang có.\n• `:aptrung <loại> <số>`: Bắt đầu ấp.\n• `:thoigianap`: Kiểm tra thời gian nở.";
+                desc = "• `:tuitrungga`: Xem trứng đang có.\n• `:aptrung <loại> <số>`: Bắt đầu ấp.\n• `:thoigianap`: Kiểm tra thời gian nở.\n• `:skipaptrung`: Bỏ qua 45p ấp trứng với giá 500xu.;
                 color = "#FFFF00";
                 break;
             case 'farm':
