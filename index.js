@@ -715,26 +715,56 @@ if (msg.content.startsWith(":equip")) {
         saveData(msg.author.id);
         msg.reply(`🌾 Đã dùng ${sl * 50} thóc. Thu về: 🥚 ${nhan.thuong} Thường, 🥈 ${nhan.bac} Bạc, 🥇 ${nhan.vang} Vàng.`);
     }
-// --- TRỘM GÀ BẺ KHÓA ---
+// --- TRỘM GÀ BẺ KHÓA (CẬP NHẬT TÍNH CẢ GÀ KHÓA) ---
 if (msg.content.startsWith(":tromga")) {
-const target = msg.mentions.users.first();
-if (!target || target.id === msg.author.id) return msg.reply("❌ Tag người khác!");
-const enemy = getUser(target.id), cd = 2 * 60 * 60 * 1000;
-if (now - u.lastSteal < cd) return msg.reply(`⏳ Chờ ${formatTime(cd - (now - u.lastSteal))}`);
-if (enemy.gaCon.length <= 1) return msg.reply("❌ Hết gà trộm rồi!");
-u.lastSteal = now; const secret = Math.floor(10000 + Math.random() * 90000).toString();
-msg.reply("🕵️ **BẺ KHÓA (5 số):** 🟢 Đúng | 🟡 Sai chỗ | 🔴 Sai số. Có 5 lượt!");
-const coll = msg.channel.createMessageCollector({ filter: m => m.author.id === msg.author.id && /^\d{5}$/.test(m.content), time: 60000, max: 5 });
-coll.on('collect', m => {
-const hint = getHint(secret, m.content);
-if (m.content === secret) {
-const s = enemy.gaCon.pop(); u.gaCon.push(s); saveData(msg.author.id); coll.stop();
-return m.reply(`🎊 **THÀNH CÔNG!** Trộm được **${s.name}**`);
-} else if (coll.collected.size >= 5) {
-u.coins = Math.max(0, u.coins - 200); saveData(msg.author.id);
-return m.reply(`🚨 **BỊ BẮT!** Mã là ${secret}. Phạt 200 Coins.`);
-} else m.reply(`Kết quả: ${hint} (Còn ${5 - coll.collected.size} lượt)`);
-});
+    const target = msg.mentions.users.first();
+    if (!target || target.id === msg.author.id) return msg.reply("❌ Hãy tag người bạn muốn trộm!");
+
+    const enemy = getUser(target.id);
+    const cd = 2 * 60 * 60 * 1000;
+
+    if (now - u.lastSteal < cd) return msg.reply(`⏳ Chờ ${formatTime(cd - (now - u.lastSteal))}`);
+
+    // Kiểm tra tổng số gà (tính cả gà đã khóa)
+    if (enemy.gaCon.length <= 1) return msg.reply("❌ Đối phương chỉ còn 1 con gà duy nhất, không thể trộm!");
+
+    // Lọc ra danh sách gà có thể trộm (gà không bị khóa)
+    const stealableGa = enemy.gaCon.filter(g => !g.locked);
+    if (stealableGa.length === 0) return msg.reply("❌ Đối phương đã khóa tất cả gà, không thể bẻ khóa!");
+
+    u.lastSteal = now; 
+    const secret = Math.floor(10000 + Math.random() * 90000).toString();
+    msg.reply("🕵️ **BẺ KHÓA (5 số):** 🟢 Đúng | 🟡 Sai chỗ | 🔴 Sai số. Có 5 lượt!");
+
+    const coll = msg.channel.createMessageCollector({ 
+        filter: m => m.author.id === msg.author.id && /^\d{5}$/.test(m.content), 
+        time: 60000, 
+        max: 5 
+    });
+
+    coll.on('collect', async m => {
+        const hint = getHint(secret, m.content);
+        if (m.content === secret) {
+            // Lấy ngẫu nhiên 1 con gà không bị khóa
+            const randomIndex = Math.floor(Math.random() * stealableGa.length);
+            const s = stealableGa[randomIndex];
+
+            // Xóa gà khỏi túi đối phương và thêm vào túi người trộm
+            enemy.gaCon = enemy.gaCon.filter(g => g.id !== s.id);
+            u.gaCon.push(s);
+
+            await saveData(msg.author.id);
+            await saveData(target.id); // Lưu lại dữ liệu của cả nạn nhân
+            coll.stop();
+            return m.reply(`🎊 **THÀNH CÔNG!** Bạn đã bẻ khóa và trộm được **${s.name}**!`);
+        } else if (coll.collected.size >= 5) {
+            u.coins = Math.max(0, (u.coins || 0) - 200);
+            await saveData(msg.author.id);
+            return m.reply(`🚨 **BỊ BẮT!** Mã đúng là ${secret}. Bạn bị phạt 200 Coins.`);
+        } else {
+            m.reply(`Kết quả: ${hint} (Còn ${5 - coll.collected.size} lượt đoán)`);
+        }
+    });
 }
 
 // --- THÔNG TIN & BXH ---
@@ -1225,25 +1255,45 @@ if (msg.content === ":attack") {
     // Phản hồi sát thương tại kênh người chơi vừa gõ lệnh
     return msg.reply(`⚔️ Gà của bạn tung đòn gây **${damage}** sát thương!\n🩸 Máu Boss còn: **${worldBoss.hp.toLocaleString()}/${worldBoss.maxHp.toLocaleString()}**`);
 }
-// --- LỆNH: BÁN TRỨNG ---
+// --- LỆNH: BÁN TRỨNG (CẬP NHẬT BÁN ALL) ---
 if (msg.content.startsWith(":selltrung")) {
     const u = data[msg.author.id]; 
     if (!u) return msg.reply("❌ Bạn chưa có trang trại! Hãy gõ `:start`.");
 
     const args = msg.content.split(" ");
-    const loai = args[1]; 
-    const sl = parseInt(args[2]);
+    const loai = args[1]; // thuong, bac, vang
+    const inputSl = args[2]; // số lượng hoặc "all"
 
-    if (!loai || isNaN(sl) || sl <= 0) return msg.reply("❌ Cú pháp: `:selltrung <thuong/bac/vang> <số lượng>`");
-    if (!u.trung[loai] || u.trung[loai] < sl) return msg.reply(`❌ Bạn không đủ trứng ${loai} để bán!`);
-
+    // 1. Kiểm tra loại trứng hợp lệ
     const gia = { thuong: 10, bac: 50, vang: 200 }; 
-    const tienThu = sl * gia[loai];
+    if (!loai || !gia[loai]) {
+        return msg.reply("❌ Cú pháp: `:selltrung <thuong/bac/vang> <số lượng hoặc all>`");
+    }
 
+    // 2. Xử lý số lượng (nếu nhập "all" thì lấy hết số trứng đang có)
+    let sl;
+    if (inputSl && inputSl.toLowerCase() === "all") {
+        sl = u.trung[loai] || 0;
+    } else {
+        sl = parseInt(inputSl);
+    }
+
+    // 3. Kiểm tra điều kiện bán
+    if (isNaN(sl) || sl <= 0) {
+        return msg.reply(`❌ Bạn cần nhập số lượng cụ thể hoặc \`all\` để bán trứng ${loai}!`);
+    }
+    if ((u.trung[loai] || 0) < sl) {
+        return msg.reply(`❌ Bạn không đủ trứng **${loai}** để bán (Hiện có: ${u.trung[loai] || 0})!`);
+    }
+
+    // 4. Tính tiền và cập nhật dữ liệu
+    const tienThu = sl * gia[loai];
     u.trung[loai] -= sl;
     u.coins = (u.coins || 0) + tienThu;
+    
     saveData(msg.author.id);
-    return msg.reply(`💰 Bạn đã bán **${sl} trứng ${loai}** và thu về **${tienThu.toLocaleString()} Coins**!`);
+
+    return msg.reply(`💰 Bạn đã bán **${sl.toLocaleString()} trứng ${loai}** và thu về **${tienThu.toLocaleString()} Coins**!`);
 }
 // --- LỆNH: KIỂM TRA RUỘNG LÚA (Đã sửa lỗi khai báo u) ---
 if (msg.content === ":ruong") {
