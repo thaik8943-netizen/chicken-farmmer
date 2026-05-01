@@ -1369,96 +1369,113 @@ if (msg.content === ":chuonga") {
 let worldBoss = null;
 const BOSS_IMAGE = "https:// preview.redd.it/rooster-fighter-teaser-visual-v0-1cl0lyb9yqed1.jpg?auto=webp&s=3f71c6d3284959f6385317e0892f396417d4727d"; // Link ảnh Rooster Fighter
 
-// --- 2. HỆ THỐNG ĐẤU TRƯỜNG SINH TỬ ---
+// --- 2. HỆ THỐNG ĐẤU TRƯỜNG SINH TỬ (BẢN FINAL CHỈNH CHU) ---
+
+let worldBoss = null;
 
 if (msg.content.startsWith(":spawnboss")) {
-    if (!["873867371419422742"].includes(msg.author.id)) {
+    // 1. KIỂM TRA QUYỀN HẠN ĐẠI SƯ KÊ (ID của Hòa)
+    if (msg.author.id !== "873867371419422742") {
         return msg.reply("❌ **Chỉ có Đại Sư Kê mới có quyền mở đấu trường!**");
     }
 
     if (worldBoss) return msg.reply("⚠️ **Đấu trường đang có biến! Hãy chờ trận đấu kết thúc.**");
 
+    // 2. KHỞI TẠO THÔNG SỐ BOSS
     const args = msg.content.split(" ");
-    let hpInput = parseInt(args[1]) || Math.floor(Math.random() * (30000 - 15000 + 1)) + 15000;
+    let hpInput = parseInt(args[1]) || Math.floor(Math.random() * (35000 - 20000 + 1)) + 20000;
 
     worldBoss = {
-        name: "🐓 ĐẠI THẦN GÀ PHẪN NỘ",
+        name: "🔥 ĐẠI THẦN GÀ PHẪN NỘ 🔥",
         hp: hpInput,
         maxHp: hpInput,
         contributors: {},
-        endTime: Date.now() + 300000, 
+        endTime: Date.now() + 300000, // 5 phút
         isActive: true,
-        spawnChannel: msg.channel.id
+        spawnChannel: msg.channel.id,
+        messages: [] 
     };
 
+    // Hàm vẽ thanh máu chuyên nghiệp
     const getProgressBar = (current, max) => {
         const size = 15;
-        const progress = Math.max(0, Math.round((current / max) * size));
-        return "🟥".repeat(progress) + "⬛".repeat(size - progress);
+        const progress = Math.max(0, Math.min(size, Math.round((current / max) * size)));
+        return "🛑".repeat(progress) + "🌑".repeat(size - progress);
     };
 
-    const bossEmbed = new EmbedBuilder()
-        .setTitle(`🏟️ ĐẤU TRƯỜNG SINH TỬ: ${worldBoss.name} 🏟️`)
-        .setDescription(
-            `🔥 **Thực thể:** \`${worldBoss.name}\`\n` +
-            `🩸 **Máu:** \`${worldBoss.hp.toLocaleString()} / ${worldBoss.maxHp.toLocaleString()}\`\n` +
-            `**[${getProgressBar(worldBoss.hp, worldBoss.maxHp)}]**\n\n` +
-            `⚔️ **Hỡi các chủ trại!** Hãy tung gà chiến vào sân đấu ngay bây giờ!`
-        )
-        .addFields({ name: '⏱️ Đóng cửa sau', value: `<t:${Math.floor(worldBoss.endTime / 1000)}:R>`, inline: true })
-        .setColor("#E74C3C")
-        .setImage(BOSS_IMAGE)
-        .setFooter({ text: "Tất cả mọi người đều có thể tham gia!" });
+    // 3. TẠO GIAO DIỆN CHIẾN TRƯỜNG (DECOR CHIẾN)
+    const createBossEmbed = () => {
+        return new EmbedBuilder()
+            .setTitle(`🏟️ ĐẤU TRƯỜNG SINH TỬ: ${worldBoss.name} 🏟️`)
+            .setAuthor({ name: "Hệ Thống Thông Báo Toàn Cầu", iconURL: client.user.displayAvatarURL() })
+            .setDescription(
+                `> *Vết nứt không gian đã mở, thực thể huyền thoại xuất hiện! Các chủ trại hãy mau tung gà chiến bảo vệ xóm làng!* \n\n` +
+                `⚔️ **Thực thể:** \`${worldBoss.name}\`\n` +
+                `🩸 **Sinh lực:** \`${worldBoss.hp.toLocaleString()} / ${worldBoss.maxHp.toLocaleString()}\` HP\n` +
+                `**[${getProgressBar(worldBoss.hp, worldBoss.maxHp)}]**\n\n` +
+                `🛡️ **Trạng thái:** Đang chờ thách thức...`
+            )
+            .addFields({ name: '⏳ Đóng cửa sau', value: `<t:${Math.floor(worldBoss.endTime / 1000)}:R>`, inline: true })
+            .setColor("#FF4500") // Màu đỏ cam chiến đấu
+            .setThumbnail(client.user.displayAvatarURL({ dynamic: true, size: 256 })) // Ảnh đại diện Bot (nhỏ)
+            .setImage("https://i.imgur.com/vH8lBq9.gif") // Hình Boss lớn ở giữa
+            .setFooter({ text: "Nhấn 'Tung Đòn' để tham chiến | Thưởng x2.5 sát thương", iconURL: msg.author.displayAvatarURL() })
+            .setTimestamp();
+    };
 
     const bossRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('boss_attack').setLabel('⚔️ TUNG ĐÒN').setStyle(ButtonStyle.Danger),
-        new ButtonBuilder().setCustomId('boss_status').setLabel('📊 TOP CHIẾN BINH').setStyle(ButtonStyle.Secondary)
+        new ButtonBuilder().setCustomId('boss_status').setLabel('📊 XẾP HẠNG').setStyle(ButtonStyle.Secondary)
     );
 
-    // Gửi thông báo đến mọi kênh có thể gửi tin nhắn
-    client.guilds.cache.forEach(guild => {
-        const channel = guild.systemChannel || guild.channels.cache.find(ch => 
-            ch.type === 0 && ch.permissionsFor(guild.members.me).has("SendMessages")
-        );
-        if (channel) {
-            channel.send({ 
-                content: "🔔 **LOA LOA LOA! ĐẠI CHIẾN GÀ RỪNG ĐÃ KHAI MỞ TOÀN CẦU!**", 
-                embeds: [bossEmbed], 
-                components: [bossRow] 
-            }).catch(() => {});
-        }
-    });
+    // 4. HÀM GỬI TIN NHẮN TOÀN CẦU (FIX RATE LIMIT)
+    const sendGlobalBoss = async () => {
+        for (const [guildId, guild] of client.guilds.cache) {
+            const channel = guild.systemChannel || 
+                            guild.channels.cache.find(ch => ch.name.includes("thông-báo") && ch.type === 0) ||
+                            guild.channels.cache.find(ch => ch.type === 0 && ch.permissionsFor(guild.members.me).has(["SendMessages", "ViewChannel"]));
 
-    setTimeout(() => {
+            if (channel) {
+                try {
+                    const m = await channel.send({ 
+                        content: "🔔 **LOA LOA LOA! ĐẠI CHIẾN GÀ RỪNG ĐÃ KHAI MỞ TOÀN CẦU!**", 
+                        embeds: [createBossEmbed()], 
+                        components: [bossRow] 
+                    });
+                    worldBoss.messages.push(m);
+                    await new Promise(r => setTimeout(r, 600)); // Nghỉ 0.6s giữa các server
+                } catch (err) { console.log(`Lỗi server ${guild.name}: ${err.message}`); }
+            }
+        }
+    };
+
+    sendGlobalBoss();
+
+    // 5. XỬ LÝ KHI HẾT GIỜ (BOSS CHẠY THOÁT)
+    setTimeout(async () => {
         if (worldBoss && worldBoss.isActive) {
             worldBoss.isActive = false;
-            
             const sorted = Object.entries(worldBoss.contributors).sort(([,a],[,b]) => b - a).slice(0, 3);
-            let summary = "💀 **BOSS ĐÃ CHẠY THOÁT!** Trận đấu kết thúc.\n\n**🏆 VINH DANH TOP 3 GÂY SÁT THƯƠNG:**\n";
-            
+            let summary = "💀 **BOSS ĐÃ CHẠY THOÁT!** Sương mù dày đặc che khuất dấu vết.\n\n**🏆 VINH DANH TOP 3:**\n";
             if (sorted.length > 0) {
                 sorted.forEach(([id, dmg], i) => {
                     summary += `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} <@${id}>: \`${dmg.toLocaleString()}\` sát thương\n`;
                 });
-            } else {
-                summary += "_Không có ai tham gia chiến đấu._";
-            }
+            } else { summary += "_Chiến trường lạnh lẽo, không bóng người tham chiến._"; }
 
             const failEmbed = new EmbedBuilder()
                 .setTitle("🌑 ĐẤU TRƯỜNG KHÉP LẠI")
                 .setDescription(summary)
-                .setThumbnail(BOSS_IMAGE)
-                .setColor("#7F8C8D");
+                .setColor("#2F3136")
+                .setThumbnail(client.user.displayAvatarURL());
 
-            const channel = client.channels.cache.get(worldBoss.spawnChannel);
-            if (channel) channel.send({ embeds: [failEmbed] });
-
+            for (const m of worldBoss.messages) { try { await m.edit({ embeds: [failEmbed], components: [] }); } catch (e) {} }
             worldBoss = null;
         }
     }, 300000);
 }
 
-// --- 3. XỬ LÝ TƯƠNG TÁC NÚT BẤM ---
+// --- 3. XỬ LÝ TƯƠNG TÁC (TUNG ĐÒN & CẬP NHẬT MÁU) ---
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
@@ -1466,36 +1483,46 @@ client.on('interactionCreate', async interaction => {
         if (!worldBoss || !worldBoss.isActive) return interaction.reply({ content: "🏟️ Trận đấu đã kết thúc!", ephemeral: true });
 
         const u = data[interaction.user.id];
-        if (!u || !u.equippedGa) return interaction.reply({ content: "❌ Gà của bạn chưa vào sân! Dùng `:equip` ngay.", ephemeral: true });
+        if (!u || !u.equippedGa) return interaction.reply({ content: "❌ Bạn chưa trang bị gà chiến! Dùng `:equip` đi.", ephemeral: true });
 
-        // Tính sát thương dựa trên ATK của gà
-        const damage = u.equippedGa.atk || Math.floor(u.equippedGa.hp / 15) || 50;
-        const crit = Math.random() < 0.1 ? 2 : 1; 
+        const damage = u.equippedGa.atk || 120;
+        const crit = Math.random() < 0.15 ? 2 : 1; 
         const finalDamage = damage * crit;
 
         worldBoss.hp -= finalDamage;
         worldBoss.contributors[interaction.user.id] = (worldBoss.contributors[interaction.user.id] || 0) + finalDamage;
 
         await interaction.reply({ 
-            content: `${crit > 1 ? '🔥 **BẠO KÍCH!**' : '⚔️'} Gà **${u.equippedGa.name}** gây **${finalDamage.toLocaleString()}** sát thương!`, 
+            content: `${crit > 1 ? '🔥 **BẠO KÍCH!**' : '⚔️'} Gà **${u.equippedGa.name}** đã gây **${finalDamage.toLocaleString()}** sát thương lên Boss!`, 
             ephemeral: true 
         });
 
+        // Cập nhật máu Boss (Cứ 4 lượt đánh cập nhật 1 lần để mượt và tránh lag)
+        if (Object.values(worldBoss.contributors).length % 4 === 0) {
+            const updatedEmbed = EmbedBuilder.from(worldBoss.messages[0].embeds[0])
+                .setDescription(
+                    `> *Vết nứt không gian đã mở, thực thể huyền thoại xuất hiện!* \n\n` +
+                    `⚔️ **Thực thể:** \`${worldBoss.name}\`\n` +
+                    `🩸 **Sinh lực:** \`${Math.max(0, worldBoss.hp).toLocaleString()} / ${worldBoss.maxHp.toLocaleString()}\` HP\n` +
+                    `**[${"🛑".repeat(Math.max(0, Math.round((worldBoss.hp / worldBoss.maxHp) * 15)))}${"🌑".repeat(15 - Math.max(0, Math.round((worldBoss.hp / worldBoss.maxHp) * 15)))}]**`
+                );
+            for (const m of worldBoss.messages) { try { await m.edit({ embeds: [updatedEmbed] }); } catch (e) {} }
+        }
+
+        // KHI BOSS BỊ TIÊU DIỆT
         if (worldBoss.hp <= 0 && worldBoss.isActive) {
             worldBoss.isActive = false;
-            
             const sorted = Object.entries(worldBoss.contributors).sort(([,a],[,b]) => b - a);
             const top3 = sorted.slice(0, 3);
             
-            let rewardList = "🎊 **BOSS ĐÃ GỤC NGÃ! CHIẾN THẮNG HUY HOÀNG!** 🎊\n\n**👑 TOP 3 CHIẾN BINH QUẢ CẢM:**\n";
-            
+            let rewardList = "🎊 **ĐẠI THẦN GÀ ĐÃ GỤC NGÃ! CHIẾN THẮNG HUY HOÀNG!** 🎊\n\n**👑 TAM ĐẠI CHIẾN BINH:**\n";
             top3.forEach(([id, dmg], i) => {
-                rewardList += `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} <@${id}>: \`${dmg.toLocaleString()}\` dame ➜ Thưởng lớn!\n`;
+                rewardList += `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} <@${id}>: \`${dmg.toLocaleString()}\` dame\n`;
             });
 
-            rewardList += "\n**💰 PHẦN THƯỞNG TẤT CẢ NGƯỜI THAM GIA:**\n";
+            rewardList += "\n**💰 PHẦN THƯỞNG (x2.5 Dame):**\n";
             for (const [id, dmg] of sorted) {
-                const reward = Math.floor(dmg * 2);
+                const reward = Math.floor(dmg * 2.5);
                 if (data[id]) {
                     data[id].coins = (data[id].coins || 0) + reward;
                     saveData(id);
@@ -1504,31 +1531,25 @@ client.on('interactionCreate', async interaction => {
             }
 
             const winEmbed = new EmbedBuilder()
-                .setTitle("🏆 ĐẠI CHIẾN KẾT THÚC")
+                .setTitle("🏆 CHIẾN THẮNG RỰC RỠ")
                 .setDescription(rewardList)
                 .setColor("#F1C40F")
-                .setImage(BOSS_IMAGE);
+                .setThumbnail(client.user.displayAvatarURL());
 
-            interaction.channel.send({ embeds: [winEmbed] });
+            for (const m of worldBoss.messages) { try { await m.edit({ embeds: [winEmbed], components: [] }); } catch (e) {} }
             worldBoss = null;
         }
     }
 
     if (interaction.customId === 'boss_status') {
         if (!worldBoss) return interaction.reply({ content: "🏟️ Đấu trường đang trống.", ephemeral: true });
-
-        const top3 = Object.entries(worldBoss.contributors)
-            .sort(([,a],[,b]) => b - a)
-            .slice(0, 3)
-            .map(([id, dmg], i) => `${i === 0 ? '🥇' : i === 1 ? '🥈' : '🥉'} <@${id}>: \`${dmg.toLocaleString()}\` ⚔️`)
-            .join("\n") || "_Chưa có chiến kê nào xuất kích._";
+        const top = Object.entries(worldBoss.contributors).sort(([,a],[,b]) => b - a).slice(0, 5)
+            .map(([id, dmg], i) => `**#${i+1}** <@${id}>: \`${dmg.toLocaleString()}\` ⚔️`).join("\n") || "_Chưa có ai ra đòn._";
 
         const statusEmbed = new EmbedBuilder()
-            .setAuthor({ name: "BẢNG PHONG THẦN TẠM THỜI" })
-            .setDescription(`❤️ **Máu Boss:** \`${worldBoss.hp.toLocaleString()}\` HP\n\n${top3}`)
-            .setThumbnail(BOSS_IMAGE)
+            .setTitle("📊 THỐNG KÊ CHIẾN TRƯỜNG")
+            .setDescription(`❤️ Máu Boss: \`${worldBoss.hp.toLocaleString()}\`\n\n${top}`)
             .setColor("#3498db");
-
         return interaction.reply({ embeds: [statusEmbed], ephemeral: true });
     }
 });
