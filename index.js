@@ -1367,8 +1367,6 @@ if (msg.content === ":chuonga") {
     });
 }
 
-const BOSS_IMAGE = "https:// preview.redd.it/rooster-fighter-teaser-visual-v0-1cl0lyb9yqed1.jpg?auto=webp&s=3f71c6d3284959f6385317e0892f396417d4727d"; // Link ảnh Rooster Fighter
-
 // --- 2. HỆ THỐNG ĐẤU TRƯỜNG SINH TỬ (BẢN FINAL CHỈNH CHU) ---
 if (msg.content.startsWith(":spawnboss")) {
     // 1. KIỂM TRA QUYỀN HẠN ĐẠI SƯ KÊ (ID của Hòa)
