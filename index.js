@@ -61,6 +61,8 @@ for (let p of PREFIX) {
         }
     }
 }
+//==================HÀM ĐÁNH BOSS===========
+let worldBoss = null;
 // ================= HÀM TIỆN ÍCH =================
 function formatTime(ms) {
     if (ms <= 0) return "Xong!";
@@ -912,38 +914,98 @@ if (msg.content === ":chuonga") {
         await i.update(generateChuongMessage(page));
     });
 }
-// --- HỆ THỐNG WORLD BOSS (DÁN VÀO ĐÂY) ---
-    if (msg.content === ":spawnbox" && adminIDs.includes(msg.author.id)) {
-        worldBoss = {
-            name: "Gà Khổng Lồ Phẫn Nộ",
-            hp: 5000,
-            maxHp: 5000,
-            contributors: {}
-        };
-        return msg.reply("🔥 **MỘT CON BOSS THẾ GIỚI ĐÃ XUẤT HIỆN!**");
+// --- HỆ THỐNG WORLD BOSS (LỆNH CHUẨN) ---
+if (msg.content.startsWith(":spawnboss")) {
+    // Kiểm tra quyền Admin bằng ID trực tiếp
+    if (!["873867371419422742"].includes(msg.author.id)) {
+        return msg.reply("❌ Bạn không có quyền năng triệu hồi thực thể này!");
     }
-    if (msg.content === ":attack") {
-    if (!worldBoss) return msg.reply("📭 Hiện không có Boss nào xuất hiện.");
-    const u = data[msg.author.id];
-    if (!u || !u.equippedGa) return msg.reply("❌ Bạn cần đeo trang bị cho một con gà để chiến đấu!");
 
+    // Ngăn chặn tạo chồng Boss nếu con cũ chưa chết
+    if (worldBoss) {
+        return msg.reply("⚠️ Một con Boss đang tồn tại! Hãy tiêu diệt nó trước khi triệu hồi con mới.");
+    }
+
+    // Xử lý lấy số máu từ lệnh (Ví dụ: :spawnboss 50000)
+    const args = msg.content.split(" ");
+    let hpInput = parseInt(args[1]);
+
+    // Nếu không nhập máu hoặc nhập sai, mặc định ngẫu nhiên 7k - 19k
+    if (isNaN(hpInput) || hpInput <= 0) {
+        hpInput = Math.floor(Math.random() * (19000 - 7000 + 1)) + 7000;
+    }
+
+    // Khởi tạo đối tượng Boss
+    worldBoss = {
+        name: "Gà Khổng Lồ Phẫn Nộ",
+        hp: hpInput,
+        maxHp: hpInput,
+        contributors: {} // Lưu sát thương của từng người chơi
+    };
+
+    // Gửi thông báo đến TOÀN BỘ máy chủ mà Bot đang tham gia (Global Notification)
+    client.guilds.cache.forEach(guild => {
+        const channel = guild.channels.cache.find(ch => 
+            ch.type === 0 && // Kênh văn bản
+            ch.permissionsFor(guild.members.me).has("SendMessages")
+        );
+
+        if (channel) {
+            channel.send(`📢 **THÔNG BÁO TOÀN CẦU** 📢\n🔥 **BOSS THẾ GIỚI ĐÃ XUẤT HIỆN!** 🔥\n👾 **Thực thể:** ${worldBoss.name}\n❤️ **Lượng máu:** ${worldBoss.hp.toLocaleString()}\n⚔️ Hãy dùng lệnh \`:attack\` để cùng các trang trại khác tiêu diệt nó!`);
+        }
+    });
+    return;
+}
+
+// 2. LỆNH TẤN CÔNG BOSS
+if (msg.content === ":attack") {
+    // Kiểm tra xem có Boss đang xuất hiện không
+    if (!worldBoss) {
+        return msg.reply("📭 Hiện không có Boss nào xuất hiện. Hãy đợi Admin triệu hồi!");
+    }
+
+    const u = data[msg.author.id];
+    // Kiểm tra người chơi đã gõ :start và có gà trang bị chưa
+    if (!u || !u.equippedGa) {
+        return msg.reply("❌ Bạn cần trang bị một con gà chiến (`:equip`) mới có thể tham chiến!");
+    }
+
+    // Tính toán sát thương (Mặc định 10 nếu gà không có thuộc tính atk)
     const damage = u.equippedGa.atk || 10;
+    
+    // Trừ máu Boss và ghi nhận đóng góp
     worldBoss.hp -= damage;
     worldBoss.contributors[msg.author.id] = (worldBoss.contributors[msg.author.id] || 0) + damage;
 
+    // KIỂM TRA NẾU BOSS BỊ TIÊU DIỆT
     if (worldBoss.hp <= 0) {
-        let winnerMsg = `🎊 **BOSS ĐÃ BỊ TIÊU DIỆT!**\n\n**Bảng sát thương:**\n`;
+        let winnerMsg = `🎊 **BOSS ${worldBoss.name.toUpperCase()} ĐÃ BỊ TIÊU DIỆT TOÀN CẦU!** 🎊\n\n**🏆 BẢNG VÀNG SÁT THƯƠNG:**\n`;
+        
+        // Duyệt danh sách những người đã đánh Boss để chia thưởng
         for (const [id, dmg] of Object.entries(worldBoss.contributors)) {
-            const thuong = dmg * 2; // Thưởng 2 coin mỗi 1 dame
-            data[id].coins += thuong;
-            winnerMsg += `<@${id}>: ${dmg} dame -> Nhận ${thuong} Coins\n`;
+            const reward = dmg * 2; // Tỉ lệ thưởng: 1 dame = 2 xu
+            
+            if (data[id]) {
+                data[id].coins = (data[id].coins || 0) + reward;
+            }
+            winnerMsg += `<@${id}>: **${dmg.toLocaleString()}** dame ➔ Nhận **${reward.toLocaleString()}** Coins\n`;
         }
+
+        // Gửi thông báo chiến thắng đến tất cả các server
+        client.guilds.cache.forEach(guild => {
+            const channel = guild.channels.cache.find(ch => ch.type === 0 && ch.permissionsFor(guild.members.me).has("SendMessages"));
+            if (channel) channel.send(winnerMsg);
+        });
+
+        // Reset trạng thái Boss và lưu dữ liệu người dùng
         worldBoss = null;
-        saveData();
-        return msg.channel.send(winnerMsg);
+        saveData(); // Đảm bảo hàm saveData() của bạn hoạt động để lưu xu vào file JSON
+        return;
     }
-    return msg.reply(`⚔️ Bạn gây **${damage}** sát thương! Boss còn **${worldBoss.hp}/${worldBoss.maxHp}** HP.`);
-    }
+
+    // Phản hồi sát thương tại kênh người chơi vừa gõ lệnh
+    return msg.reply(`⚔️ Gà của bạn tung đòn gây **${damage}** sát thương!\n🩸 Máu Boss còn: **${worldBoss.hp.toLocaleString()}/${worldBoss.maxHp.toLocaleString()}**`);
+}
 // --- LỆNH: BÁN TRỨNG ---
 if (msg.content.startsWith(":selltrung")) {
     const u = data[msg.author.id]; 
