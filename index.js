@@ -233,7 +233,7 @@ if (msg.content.startsWith(":give")) {
             r.trung[typeOrName] = (r.trung[typeOrName] || 0) + amt;
         }
 
-        saveData();
+        saveData(msg.author.id);
         return msg.reply(`🎁 Đã tặng **${amt.toLocaleString()} ${typeOrName}** cho <@${targetUser.id}>!`);
     }
 
@@ -263,7 +263,7 @@ if (msg.content.startsWith(":give")) {
         r.gaCon.push(customGa);
     }
 
-    saveData();
+    saveData(msg.author.id);
     return msg.reply(`🎁 **QUÀ ĐẶC BIỆT!**\nĐã tặng **${amt}** con **${cleanName}** cho <@${targetUser.id}> thành công!`);
 }
 // --- LỆNH: NÂNG CẤP ĐỒNG BỘ GIÁ LŨY TIẾN ---
@@ -874,7 +874,7 @@ if (msg.content === ":daily") {
     // Nếu đã hết thời gian chờ
     u.thoc = (u.thoc || 0) + 500; 
     u.lastDaily = now; 
-    saveData(); // Lưu lại dữ liệu toàn cục
+    saveData(msg.author.id); // Lưu lại dữ liệu toàn cục
     
     return msg.reply("🌾 **Chúc mừng!** Bạn đã nhận được **500 Thóc** cho ngày hôm nay.");
 }
