@@ -213,42 +213,59 @@ if (msg.content.startsWith(":give")) {
     if (msg.author.id !== "873867371419422742") return msg.reply("❌ Quyền lực này không thuộc về bạn!");
 
     const args = msg.content.split(" ");
-    const target = msg.mentions.users.first();
-    const type = args[2]?.toLowerCase();
-    const amt = parseInt(args[3]);
+    const targetUser = msg.mentions.users.first();
+    const typeOrName = args[2]?.toLowerCase();
+    const r = data[targetUser?.id];
 
-    if (!target || !type || isNaN(amt) || amt <= 0) {
-        return msg.reply("❌ Cú pháp: `:give @user <loại> <số lượng>`\n💡 Loại: `xu`, `thoc`, `thuong`, `bac`, `vang` hoặc `tên_độ_hiếm_gà` (ví dụ: `legendary`)");
-    }
+    if (!targetUser || !r) return msg.reply("❌ Cú pháp không hợp lệ hoặc người dùng chưa khởi tạo trang trại!");
 
-    const r = data[target.id];
-    if (!r) return msg.reply("❌ Người này chưa khởi tạo trang trại!");
+    // --- TRƯỜNG HỢP 1: TẶNG VẬT PHẨM CƠ BẢN (Xu, Thóc, Trứng) ---
+    // Cú pháp: :give @user <loại> <số lượng>
+    if (["xu", "thoc", "thuong", "bac", "vang"].includes(typeOrName)) {
+        const amt = parseInt(args[3]);
+        if (isNaN(amt) || amt <= 0) return msg.reply("❌ Vui lòng nhập số lượng hợp lệ!");
 
-    if (type === "xu") {
-        r.coins = (r.coins || 0) + amt;
-    } else if (type === "thoc") {
-        r.thoc = (r.thoc || 0) + amt;
-    } else if (["thuong", "bac", "vang"].includes(type)) {
-        r.trung[type] = (r.trung[type] || 0) + amt;
-    } else {
-        for (let i = 0; i < amt; i++) {
-            const newGa = {
-                id: Date.now() + i,
-                name: `Gà ${type.toUpperCase()}`,
-                rarity: type.charAt(0).toUpperCase() + type.slice(1),
-                hp: 100,
-                atk: 20,
-                price: 500,
-                locked: false
-            };
-            r.gaCon.push(newGa);
+        if (typeOrName === "xu") {
+            r.coins = (r.coins || 0) + amt;
+        } else if (typeOrName === "thoc") {
+            r.thoc = (r.thoc || 0) + amt;
+        } else {
+            r.trung[typeOrName] = (r.trung[typeOrName] || 0) + amt;
         }
+
+        saveData();
+        return msg.reply(`🎁 Đã tặng **${amt.toLocaleString()} ${typeOrName}** cho <@${targetUser.id}>!`);
     }
 
-    saveData(msg.author.id);
-    return msg.reply(`🎁 Đã tặng **${amt} ${type}** cho <@${target.id}> thành công!`);
-}
+    // --- TRƯỜNG HỢP 2: TẶNG GÀ THIẾT KẾ RIÊNG ---
+    // Cú pháp: :give @user <tên_gà> <độ_hiếm> <máu> <atk> <giá> <số_lượng>
+    const rarity = args[3];
+    const hp = parseInt(args[4]);
+    const atk = parseInt(args[5]);
+    const price = parseInt(args[6]);
+    const amt = parseInt(args[7]) || 1;
 
+    if (!typeOrName || !rarity || isNaN(hp) || isNaN(atk) || isNaN(price)) {
+        return msg.reply("❌ **Sai cú pháp!**\n1️⃣ Tặng vật phẩm: `:give @user xu/thoc/thuong/bac/vang <số_lượng>`\n2️⃣ Tặng gà: `:give @user <tên_gà> <độ_hiếm> <máu> <atk> <giá> <số_lượng>`");
+    }
+
+    const cleanName = typeOrName.replace(/_/g, " ");
+    for (let i = 0; i < amt; i++) {
+        const customGa = {
+            id: Date.now() + i,
+            name: cleanName,
+            rarity: rarity.charAt(0).toUpperCase() + rarity.slice(1),
+            hp: hp,
+            atk: atk,
+            price: price,
+            locked: false
+        };
+        r.gaCon.push(customGa);
+    }
+
+    saveData();
+    return msg.reply(`🎁 **QUÀ ĐẶC BIỆT!**\nĐã tặng **${amt}** con **${cleanName}** cho <@${targetUser.id}> thành công!`);
+}
 // --- LỆNH: NÂNG CẤP ĐỒNG BỘ GIÁ LŨY TIẾN ---
 if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":upaptrung") {
     let typeName = "";
