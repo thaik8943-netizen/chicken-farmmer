@@ -68,9 +68,6 @@ async function connectDB() {
     }
 }
 connectDB();
-client.on('error', (err) => {
-   console.error('Lỗi WebSocket nè:', err.message);
-});
 // --- SỰ KIỆN: TỰ CẤP ROLE KHI CÓ THÀNH VIÊN MỚI VÀO SERVER ---
 client.on("guildMemberAdd", async (member) => {
     const roleID = "1499451733888335913"; // ID Role Duy Hòa cung cấp
