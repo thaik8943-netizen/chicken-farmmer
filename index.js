@@ -484,7 +484,7 @@ if (msg.content === ":trieuhoishopthanthoai") {
 
     currentSpecialShop = items[Math.floor(Math.random() * items.length)];
 
-    const announcement = `✨ **SHOP THẦN THOẠI ĐÃ XUẤT HIỆN!** ✨\n\n🛒 Vật phẩm: **${currentSpecialShop.name}**\n💰 Giá: **${currentSpecialShop.price.toLocaleString()} Xu**\n📝 *${currentSpecialShop.desc}*\n\n⏰ Shop chỉ tồn tại trong **5 phút**! Hãy gõ \`:muanhé\` để sở hữu ngay!`;
+    const announcement = `✨ **SHOP THẦN THOẠI ĐÃ XUẤT HIỆN!** ✨\n\n🛒 Vật phẩm: **${currentSpecialShop.name}**\n💰 Giá: **${currentSpecialShop.price.toLocaleString()} Xu**\n📝 *${currentSpecialShop.desc}*\n\n⏰ Shop chỉ tồn tại trong **5 phút**! Hãy gõ \`:mua\` để sở hữu ngay!`;
 
     let guildCount = 0;
     client.guilds.cache.forEach(async (guild) => {
