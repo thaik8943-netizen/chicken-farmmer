@@ -564,8 +564,7 @@ if (msg.content.startsWith(":trade")) {
         if (reason === 'time') tradeMsg.edit({ content: "⏳ Hết thời hạn giao kèo (5 phút).", components: [] }).catch(() => {});
     });
 }
-// --- LỆNH: TRIỆU HỒI SHOP & THÔNG BÁO TOÀN CẦU ---
-// --- LỆNH: TRIỆU HỒI SHOP THẦN THOẠI (DECOR & BUTTONS) ---
+// --- LỆNH: TRIỆU HỒI SHOP THẦN THOẠI ---
 if (msg.content === ":trieuhoishopthanthoai") {
     const adminID = "873867371419422742"; 
     if (msg.author.id !== adminID) return msg.reply("❌ Bạn không có quyền triệu hồi thần linh!");
@@ -573,16 +572,14 @@ if (msg.content === ":trieuhoishopthanthoai") {
     const items = [
         { id: "ve_restart", name: "Vé Restart 🎟️", price: 50000, desc: "Bỏ qua thời gian ấp trứng ngay lập tức.", color: "#3498DB" },
         { id: "trung_god", name: "Trứng God 🥚", price: 200000, desc: "Nở ra 100% gà Legendary.", color: "#F1C40F" },
-        { id: "hop_bi_an", name: "Hộp Bí Ẩn 🎁", price: 30000, desc: "Mở ra ngẫu nhiên 1,000 - 20,000 Xu/Thóc.", color: "#9B59B6" }
+        { id: "hop_bi_an", name: "Hộp Bí Ẩn 🎁", price: 30000, desc: "Mở ra ngẫu nhiên Xu hoặc Thóc.", color: "#9B59B6" }
     ];
 
-    // Chọn ngẫu nhiên vật phẩm
     currentSpecialShop = items[Math.floor(Math.random() * items.length)];
 
-    // Tạo Embed Decor
     const shopEmbed = new EmbedBuilder()
         .setTitle("✨ SHOP THẦN THOẠI ĐANG MỞ CỬA ✨")
-        .setDescription(`> *Vị thần thương nhân vừa ghé qua trang trại của bạn mang theo báu vật hiếm có!*`)
+        .setDescription(`> *Vị thần thương nhân vừa ghé qua trang trại của bạn!*`)
         .addFields(
             { name: "📦 Vật phẩm", value: `**${currentSpecialShop.name}**`, inline: true },
             { name: "💰 Giá bán", value: `\`${currentSpecialShop.price.toLocaleString()} Xu\``, inline: true },
@@ -590,10 +587,9 @@ if (msg.content === ":trieuhoishopthanthoai") {
             { name: "⏰ Thời gian", value: `Kết thúc lúc <t:${Math.floor((Date.now() + 15 * 60 * 1000) / 1000)}:R>` }
         )
         .setColor(currentSpecialShop.color)
-        .setThumbnail("https://i.imgur.com/8E9p6fS.gif") // Ảnh minh họa shop
+        .setThumbnail("https://i.imgur.com/8E9p6fS.gif")
         .setFooter({ text: "Nhấn nút bên dưới để mua ngay!", iconURL: msg.author.displayAvatarURL() });
 
-    // Tạo Nút bấm
     const row = new ActionRowBuilder().addComponents(
         new ButtonBuilder()
             .setCustomId('buy_special_item')
@@ -602,142 +598,79 @@ if (msg.content === ":trieuhoishopthanthoai") {
             .setStyle(ButtonStyle.Success)
     );
 
-    // Gửi đến các kênh chỉ định
     BOSS_CHANNELS.forEach(async (channelId) => {
         try {
             const channel = await client.channels.fetch(channelId);
-            if (channel) {
-                await channel.send({ embeds: [shopEmbed], components: [row] });
-            }
+            if (channel) await channel.send({ embeds: [shopEmbed], components: [row] });
         } catch (e) {
-            console.log(`❌ Lỗi gửi shop đến kênh ${channelId}: ${e.message}`);
+            console.log(`❌ Lỗi gửi shop: ${e.message}`);
         }
     });
 
-    msg.reply(`🚀 Shop đã xuất hiện trong **15 phút** tại các kênh chỉ định!`);
-
-    setTimeout(() => {
-        currentSpecialShop = null;
-    }, 15 * 60 * 1000);[cite: 1]
+    msg.reply(`🚀 Shop đã xuất hiện trong **15 phút**!`);
+    setTimeout(() => { currentSpecialShop = null; }, 15 * 60 * 1000);
 }
-    // --- LỆNH: SỬ DỤNG VẬT PHẨM (:use) ---
+
+// --- LỆNH: SỬ DỤNG VẬT PHẨM (:use) ---
 if (msg.content.startsWith(":use")) {
+    const u = getUser(msg.author.id); // Lấy dữ liệu user
     const args = msg.content.split(" ");
     const itemKey = args[1]?.toLowerCase();
 
-    // Khởi tạo túi đồ nếu chưa có để tránh lỗi
     if (!u.inventory) u.inventory = { ve_restart: 0, trung_god: 0, hop_bi_an: 0 };
-    if (u.thoc === undefined) u.thoc = 0; 
-
-    // Kiểm tra xem vật phẩm có trong kho không
     if (!itemKey || !u.inventory[itemKey] || u.inventory[itemKey] <= 0) {
-        return msg.reply("❌ Bạn không có vật phẩm này hoặc đã dùng hết!");
+        return msg.reply("❌ Bạn không có vật phẩm này!");
     }
 
-    // --- 1. XỬ LÝ VÉ RESTART ---
     if (itemKey === "ve_restart") {
-        if (!u.dangAp || u.dangAp.length === 0) {
-            return msg.reply("❌ Máy ấp đang trống, không có trứng để dùng vé!");
-        }
-
+        if (!u.dangAp || u.dangAp.length === 0) return msg.reply("❌ Máy ấp đang trống!");
         u.inventory.ve_restart -= 1;
-        u.dangAp.forEach(trung => {
-            trung.finishAt = Date.now(); 
-        });
-
+        u.dangAp.forEach(trung => { trung.finishAt = Date.now(); });
         await saveData(msg.author.id);
-        return msg.reply("🎟️ **VÉ RESTART KÍCH HOẠT!** Tất cả trứng đang ấp đã sẵn sàng nở. Hãy chat để nhận gà!");
+        return msg.reply("🎟️ **VÉ RESTART KÍCH HOẠT!** Trứng đã sẵn sàng nở.");
     }
 
-    // --- 2. XỬ LÝ TRỨNG GOD ---
     if (itemKey === "trung_god") {
         u.inventory.trung_god -= 1;
-
         const godPool = GA_LIST.filter(g => g.rarity.includes("Legendary"));
         const selectedGa = godPool[Math.floor(Math.random() * godPool.length)];
-
-        const newGa = {
-            ...selectedGa,
-            id: Date.now() + Math.random(),
-            hp: Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000,
-            atk: Math.floor(Math.random() * (1500 - 800 + 1)) + 800,
-            price: Math.floor(Math.random() * (300000 - 100000 + 1)) + 100000,
-            locked: false
-        };
-
+        const newGa = { ...selectedGa, id: Date.now(), locked: false };
         u.gaCon.push(newGa);
         await saveData(msg.author.id);
-
-        const godEmbed = new EmbedBuilder()
-            .setTitle("✨ HUYỀN THOẠI XUẤT THẾ ✨")
-            .setDescription(`🥚 Trứng God đã nở ra **${newGa.name}**!\n\n❤️ HP: \`${newGa.hp}\` | 💪 ATK: \`${newGa.atk}\``)
-            .setColor("#f1c40f")
-            .setThumbnail(msg.author.displayAvatarURL());
-
-        return msg.reply({ embeds: [godEmbed] });
+        return msg.reply(`✨ Trứng God đã nở ra **${newGa.name}**!`);
     }
 
-    // --- 3. XỬ LÝ HỘP BÍ ẨN (Chỉ nhận Thóc và Xu) ---
     if (itemKey === "hop_bi_an") {
         u.inventory.hop_bi_an -= 1;
-
         const isThoc = Math.random() < 0.5;
-        let resultText = "";
-
         if (isThoc) {
-            const thocNhan = Math.floor(Math.random() * (100 - 20 + 1)) + 20; 
-            u.thoc += thocNhan;
-            resultText = `🌾 Bạn nhận được **${thocNhan} Thóc**!`;
+            const nhan = Math.floor(Math.random() * 81) + 20;
+            u.thoc += nhan;
+            msg.reply(`🌾 Bạn nhận được **${nhan} Thóc**!`);
         } else {
-            const xuNhan = Math.floor(Math.random() * (30000 - 5000 + 1)) + 5000; 
-            u.money += xuNhan;
-            resultText = `💰 Bạn nhận được **${xuNhan.toLocaleString()} Xu**!`;
+            const nhan = Math.floor(Math.random() * 25001) + 5000;
+            u.money += nhan;
+            msg.reply(`💰 Bạn nhận được **${nhan.toLocaleString()} Xu**!`);
         }
-
         await saveData(msg.author.id);
-
-        const boxEmbed = new EmbedBuilder()
-            .setTitle("🎁 KẾT QUẢ MỞ HỘP")
-            .setDescription(resultText)
-            .setColor("#e74c3c")
-            .setFooter({ text: `Số hộp còn lại: ${u.inventory.hop_bi_an}` });
-
-        return msg.reply({ embeds: [boxEmbed] });
     }
 }
-    // --- LỆNH: KHO ĐỒ (:khodo) ---
+
+// --- LỆNH: KHO ĐỒ (:khodo) ---
 if (msg.content === ":khodo") {
-    // Khởi tạo túi đồ nếu chưa có để tránh lỗi
+    const u = getUser(msg.author.id); // ĐÃ THÊM DÒNG NÀY ĐỂ HẾT LỖI
     if (!u.inventory) u.inventory = { ve_restart: 0, trung_god: 0, hop_bi_an: 0 };
 
     const invEmbed = new EmbedBuilder()
         .setTitle(`🎒 KHO ĐỒ CỦA ${msg.author.username.toUpperCase()}`)
         .setColor("#3498DB")
-        .setThumbnail(msg.author.displayAvatarURL())
         .addFields(
-            { 
-                name: "🎟️ Vé Restart", 
-                value: `Số lượng: **${u.inventory.ve_restart || 0}**`, 
-                inline: true 
-            },
-            { 
-                name: "🥚 Trứng God", 
-                value: `Số lượng: **${u.inventory.trung_god || 0}**`, 
-                inline: true 
-            },
-            { 
-                name: "🎁 Hộp Bí Ẩn", 
-                value: `Số lượng: **${u.inventory.hop_bi_an || 0}**`, 
-                inline: true 
-            },
-            { 
-                name: "💰 Số dư Xu", 
-                value: `**${u.money.toLocaleString()} Xu**`, 
-                inline: false 
-            }
+            { name: "🎟️ Vé", value: `${u.inventory.ve_restart || 0}`, inline: true },
+            { name: "🥚 Trứng God", value: `${u.inventory.trung_god || 0}`, inline: true },
+            { name: "🎁 Hộp Bí Ẩn", value: `${u.inventory.hop_bi_an || 0}`, inline: true },
+            { name: "💰 Số dư Xu", value: `**${u.money.toLocaleString()} Xu**`, inline: false }
         )
-        .setFooter({ text: "Sử dụng vật phẩm bằng lệnh: :use <tên_vật_phẩm>" })
-        .setTimestamp();
+        .setFooter({ text: "Dùng: :use <tên_vật_phẩm>" });
 
     return msg.reply({ embeds: [invEmbed] });
 }
