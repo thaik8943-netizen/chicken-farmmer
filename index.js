@@ -1070,7 +1070,7 @@ if (msg.content === ":tronglua") {
 
     return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
 }
-// --- HỆ THỐNG MENU HELP ---
+// --- HỆ THỐNG MENU HELP (CẬP NHẬT) ---
 if (msg.content === ":help") {
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('help_menu')
@@ -1080,7 +1080,8 @@ if (msg.content === ":help") {
             { label: 'Nuôi Dưỡng & Sản Xuất', value: 'feed', emoji: '🌾' },
             { label: 'Ấp Trứng & Quản Lý', value: 'hatch', emoji: '🥚' },
             { label: 'Nâng Cấp Công Trình', value: 'upgrade', emoji: '🏗️' },
-            { label: 'Giao Thương & PVP', value: 'pvp_trade', emoji: '🤝' },
+            { label: 'Giao Thương & Chợ Gà', value: 'market_trade', emoji: '🤝' },
+            { label: 'Sự Kiện World Boss', value: 'world_boss', emoji: '🔥' }, // Tùy chọn mới
             { label: 'Hoạt Động Ngầm', value: 'steal', emoji: '🕵️' },
         ]);
 
@@ -1095,8 +1096,9 @@ if (msg.content === ":help") {
         componentType: ComponentType.StringSelect, 
         time: 120000 
     });
+
     collector.on('collect', async i => {
-        if (i.user.id !== msg.author.id) return i.reply({ content: "❌!", ephemeral: true });
+        if (i.user.id !== msg.author.id) return i.reply({ content: "❌ Bạn không thể điều khiển menu này!", ephemeral: true });
 
         let title = "", desc = "", color = "#3498DB";
         switch (i.values[0]) {
@@ -1109,10 +1111,30 @@ if (msg.content === ":help") {
                 desc = ">>> 🥗 `:chogaan`: Cho gà ăn.\n🌱 `:ruong`: Xem ruộng lúa.\n🌾 `:thuhoach`: Gặt lúa.";
                 color = "#FFA500";
                 break;
+            case 'hatch':
+                title = "🥚 ẤP TRỨNG & QUẢN LÝ";
+                desc = ">>> 🐣 `:aptrung`: Ấp trứng ngẫu nhiên.\n🏡 `:chuonga`: Xem danh sách gà.\n💰 `:selltrung`: Bán trứng kiếm tiền.";
+                color = "#F1C40F";
+                break;
             case 'upgrade':
                 title = "🏗️ DANH MỤC: NÂNG CẤP";
                 desc = ">>> 🏚️ `:upga`: Nâng cấp chuồng.\n🏭 `:upaptrung`: Nâng cấp máy ấp.\n📦 `:upthoc`: Nâng cấp kho thóc.";
                 color = "#95A5A6";
+                break;
+            case 'market_trade':
+                title = "🤝 GIAO THƯƠNG & CHỢ GÀ";
+                desc = ">>> 🛒 `:market`: Xem chợ cộng đồng.\n📤 `:market post`: Đăng bán gà lên chợ.\n📦 `:trade`: Giao dịch trực tiếp với người chơi.";
+                color = "#2ECC71";
+                break;
+            case 'world_boss': // Cập nhật nội dung Boss Thế Giới
+                title = "🔥 SỰ KIỆN: WORLD BOSS";
+                desc = ">>> ⚔️ `:attack`: Tấn công Boss khi nó xuất hiện.\n🏆 Boss chết sẽ chia thưởng theo sát thương gây ra.\n📢 Hãy chú ý thông báo từ Admin!";
+                color = "#E74C3C";
+                break;
+            case 'steal':
+                title = "🕵️ HOẠT ĐỘNG NGẦM";
+                desc = ">>> 🥷 `:steal`: Đi ăn trộm thóc hàng xóm.\n⚠️ Cẩn thận kẻo bị phạt tiền!";
+                color = "#34495E";
                 break;
             default:
                 title = "Chức năng đang cập nhật";
