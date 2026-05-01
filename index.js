@@ -1133,36 +1133,29 @@ if (msg.content === ":tronglua") {
 
     return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
 }
-// --- HỆ THỐNG MENU HELP SIÊU CẤP (Tinh Gọn & Sang Trọng) ---
+// --- HỆ THỐNG MENU HELP SIÊU CẤP (Bản Update Đầy Đủ & Nâng Cấp) ---
 if (msg.content === ":help") {
-    // 1. Tạo Menu
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('help_menu')
         .setPlaceholder('📂 Chọn danh mục bạn muốn xem...')
         .addOptions([
             { label: 'Hướng Dẫn Tân Thủ', value: 'basic', emoji: '🔰' },
-            { label: 'Nuôi Dưỡng & Tỉ Lệ', value: 'feed', emoji: '🌾' },
+            { label: 'Nuôi Dưỡng & Sản Xuất', value: 'feed', emoji: '🌾' },
             { label: 'Ấp Trứng & Quản Lý', value: 'hatch', emoji: '🥚' },
-            { label: 'Chuồng Gà & Chỉ Số', value: 'farm', emoji: '🏡' },
+            { label: 'Nâng Cấp Công Trình', value: 'upgrade', emoji: '🏗️' }, // Mục mới
             { label: 'Giao Thương & PVP', value: 'pvp_trade', emoji: '🤝' },
             { label: 'Hoạt Động Ngầm', value: 'steal', emoji: '🕵️' },
         ]);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
 
-    // 2. Embed chào mừng (Đã bỏ phần text máy chữ cập nhật)
     const helpEmbed = new EmbedBuilder()
         .setTitle("📒 CUỐN CẨM NANG CHICKEN EMPIRE")
-        .setAuthor({ name: "Hệ Thống Quản Trị Trang Trại", iconURL: client.user.displayAvatarURL() })
         .setColor("#FFD700")
         .setThumbnail(client.user.displayAvatarURL())
-        .setDescription(
-            "✨ **Chào mừng chủ trang trại!**\n" + 
-            "Dưới đây là toàn bộ bí kíp để bạn xây dựng đế chế gà của mình. Hãy chọn một danh mục bên dưới để xem chi tiết các lệnh."
-        )
+        .setDescription("✨ **Chào mừng chủ trang trại!**\nDưới đây là toàn bộ bí kíp để bạn xây dựng đế chế gà của mình.\n\n*Hãy chọn danh mục bên dưới để bắt đầu.*")
         .addFields(
-            { name: '🚀 Lối tắt nhanh', value: '`:start` • `:thongtin` • `:chuonga`', inline: true },
-            { name: '💎 Độ hiếm cao nhất', value: '`Legendary 🟡 (0.01%)`', inline: true }
+            { name: '🚀 Lối tắt nhanh', value: '`:start` • `:thongtin` • `:chuonga` • `:ruong`', inline: true }
         )
         .setFooter({ text: `Yêu cầu bởi ${msg.author.username}`, iconURL: msg.author.displayAvatarURL() });
 
@@ -1180,35 +1173,52 @@ if (msg.content === ":help") {
         let desc = "";
         let color = "#3498DB";
 
-        // --- HỆ THỐNG MENU HELP (Đã cập nhật mục Ruộng Lúa) ---
-// ... (Các phần trên giữ nguyên)
-
         switch (i.values[0]) {
             case 'basic':
                 title = "🚜 DANH MỤC: TÂN THỦ";
                 desc = ">>> 🔰 `:start`: Khởi tạo trang trại.\n" +
                        "💰 `:daily`: Nhận 500 thóc (Hồi 2h).\n" +
                        "📊 `:thongtin`: Xem ví tiền & cấp độ.\n" +
-                       "🏆 `:bxh`: Top 10 đại gia (Đã ẩn Admin).";
+                       "🏆 `:bxh`: Top 10 đại gia của vương quốc.";
                 break;
             case 'feed':
                 title = "🌾 NUÔI DƯỠNG & SẢN XUẤT";
                 desc = ">>> 🥗 `:chogaan <số>`: Dùng 50 thóc/lần.\n" +
-                       "🌱 `:tronglua`: Gieo hạt giống (Tốn Xu).\n" +
-                       "🌾 `:thuhoach`: Thu hoạch thóc khi lúa chín.\n\n" +
+                       "🌱 `:ruong`: Xem tình trạng ruộng lúa.\n" +
+                       "🌾 `:thuhoach`: Gặt lúa khi đã chín (100%).\n\n" +
                        "🥚 **Tỉ lệ rơi trứng:**\n" +
                        "└ ⚪ **Thường:** 93% | 🔘 **Bạc:** 6% | 🟡 **Vàng:** 1%";
                 color = "#FFA500";
                 break;
             case 'hatch':
-                title = "🥚 DANH MỤC: ẤP TRỨNG";
+                title = "🥚 DANH MỤC: ẤP TRỨNG & QUẢN LÝ";
                 desc = ">>> 🎒 `:tuitrungga`: Xem kho trứng đang có.\n" +
                        "🔥 `:aptrung <loại> <số>`: Bắt đầu ấp trứng.\n" +
-                       "⏳ `:thoigianap`: Đồng hồ đếm ngược giờ nở.\n" +
+                       "⏳ `:thoigianap`: Kiểm tra thời gian trứng nở.\n" +
                        "⚡ `:skipaptrung`: Dùng Xu rút ngắn 45p ấp.";
                 color = "#FFFF00";
                 break;
-// ... (Các case khác giữ nguyên)
+            case 'upgrade': // CASE MỚI CHO :NANGCAP
+                title = "🏗️ DANH MỤC: NÂNG CẤP CÔNG TRÌNH";
+                desc = ">>> 🏚️ `:upga`: Nâng cấp chuồng (Thêm chỗ nuôi gà).\n" +
+                       "🏭 `:upaptrung`: Nâng cấp máy (Trứng nở nhanh hơn).\n" +
+                       "📦 `:upthoc`: Nâng cấp kho (Tăng sản lượng lúa/vụ).\n\n" +
+                       "💡 *Gợi ý: Hãy ưu tiên `:upthoc` trước để có nguồn lực nâng cấp các mục khác!*";
+                color = "#95A5A6";
+                break;
+            case 'pvp_trade':
+                title = "🤝 GIAO THƯƠNG & CHIẾN ĐẤU";
+                desc = ">>> 🤝 `:trade @user`: Giao dịch vật phẩm.\n" +
+                       "🥊 `:daga @user`: Thách đấu đá gà đặt cược.\n" +
+                       "⚔️ `:equip <tên>`: Trang bị vũ khí cho gà chiến.";
+                color = "#E91E63";
+                break;
+            case 'steal':
+                title = "🕵️ HOẠT ĐỘNG NGẦM";
+                desc = ">>> 🧤 `:tromga @user`: Đột nhập trộm gà hàng xóm.\n" +
+                       "📢 *Gà đã khóa không thể bị trộm!*";
+                color = "#2C3E50";
+                break;
         }
 
         const updateEmbed = new EmbedBuilder()
@@ -1216,7 +1226,7 @@ if (msg.content === ":help") {
             .setDescription(desc)
             .setColor(color)
             .setThumbnail(client.user.displayAvatarURL())
-            .setFooter({ text: "Sử dụng Menu bên dưới để chuyển mục" });
+            .setFooter({ text: "Dùng Menu bên dưới để chuyển danh mục" });
 
         await i.update({ embeds: [updateEmbed] });
     });
@@ -1224,23 +1234,23 @@ if (msg.content === ":help") {
     collector.on('end', () => {
         response.edit({ components: [] }).catch(() => {});
     });
-}
+} 
+
+}); // ĐÓNG SỰ KIỆN messageCreate
+
 function getSimilarity(str1, str2) {
+    // ... (Hàm giữ nguyên như cũ)
     const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
     const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    
     if (s1 === s2) return 1.0;
     if (s1.length < 2 || s2.length < 2) return 0;
-
     const bigrams1 = new Set();
     for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
-    
     const bigrams2 = new Set();
     for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
-
     let intersect = 0;
     for (let b of bigrams1) { if (bigrams2.has(b)) intersect++; }
-
     return (2.0 * intersect) / (bigrams1.size + bigrams2.size);
 }
+
 client.login(process.env.TOKEN);
