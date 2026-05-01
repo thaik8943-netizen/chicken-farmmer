@@ -379,7 +379,7 @@ if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":up
     
     return msg.reply(`🚀 Nâng cấp thành công! **${typeName}** đã lên **Lv.${u[key]}**.\n💸 Bạn đã chi: **${cost.toLocaleString()} Coins**.`);
 }
-// --- LỆNH: GIAO DỊCH GÀ (TRADE) - BẢN FIX CHUỒNG GÀ & DECOR ---
+// --- LỆNH: GIAO DỊCH GÀ (TRADE) - BẢN FIX TRIỆT ĐỂ LỖI MENU ---
 if (msg.content.startsWith(":trade")) {
     const target = msg.mentions.users.first();
     if (!target || target.id === msg.author.id || target.bot) return msg.reply("❌ Tag người chơi bạn muốn giao dịch!");
@@ -404,6 +404,7 @@ if (msg.content.startsWith(":trade")) {
                    `${d.confirmed ? "✅ TRẠNG THÁI: ĐÃ KÝ" : "⏳ TRẠNG THÁI: CHỜ..."}\n` +
                    `\`\`\` `;
         };
+        
         return new EmbedBuilder()
             .setTitle("🤝 TRUNG TÂM GIAO DỊCH CHIẾN KÊ 🤝")
             .setDescription("> *Cẩn thận trong từng giao kèo, chuồng gà của bạn đang nằm trên bàn đàm phán!*")
@@ -412,7 +413,8 @@ if (msg.content.startsWith(":trade")) {
                 { name: `🔏 CHỦ CHUỒNG: ${msg.author.username}`, value: createField(msg.author.id), inline: true },
                 { name: `🔏 CHỦ CHUỒNG: ${target.username}`, value: createField(target.id), inline: true }
             )
-            .setImage("https://i.imgur.com/vH8lBq9.gif") // Bạn có thể thay link ảnh Pinterest vào đây nếu có link trực tiếp
+            // ĐỔI THÀNH ẢNH ĐẠI DIỆN CỦA BOT
+            .setThumbnail(client.user.displayAvatarURL({ dynamic: true, size: 512 }))
             .setTimestamp()
             .setFooter({ text: "Hệ thống bảo mật chuồng gà 🐔" });
     };
@@ -440,46 +442,53 @@ if (msg.content.startsWith(":trade")) {
             return i.reply({ content: "Hợp đồng đã ký tạm thời, không thể sửa đồ!", ephemeral: true });
         }
 
-        // --- 1. Xử lý CHUỒNG GÀ (Fix lỗi không hoạt động) ---
+        // --- 1. XỬ LÝ CHUỒNG GÀ (FIX LỖI TRONG ẢNH image_4a5f3f.png) ---
         if (i.customId === 'trade_ga') {
-            // Kiểm tra xem trong chuồng có gà không
             if (!myDb.gaCon || myDb.gaCon.length === 0) {
-                return i.reply({ content: "⚠️ Chuồng gà của bạn đang trống trơn, hãy đi ấp trứng thêm nhé!", ephemeral: true });
+                return i.reply({ content: "⚠️ Chuồng gà của bạn đang trống trơn!", ephemeral: true });
             }
 
-            // Lọc gà: Không bị khóa và chưa có trong bàn trade
             const availableGa = myDb.gaCon.filter(g => !g.locked && !myTrade.items.some(it => it.id === g.id));
             
             if (availableGa.length === 0) {
-                return i.reply({ content: "⚠️ Không còn gà nào trong chuồng sẵn sàng để giao dịch!", ephemeral: true });
+                return i.reply({ content: "⚠️ Không còn gà nào sẵn sàng để giao dịch!", ephemeral: true });
             }
 
-            const select = new StringSelectMenuBuilder()
-                .setCustomId('sel_ga')
-                .setPlaceholder('🏮 Chọn một chiến kê từ chuồng của bạn...')
+            const selectGa = new StringSelectMenuBuilder()
+                .setCustomId('sel_ga_trade')
+                .setPlaceholder('🏮 Chọn một chiến kê từ chuồng...')
                 .addOptions(availableGa.slice(0, 25).map(g => ({
                     label: `🐥 ${g.name}`,
                     description: `Hạng: ${g.rarity || 'Thường'} | HP: ${g.hp}`,
                     value: g.id.toString()
                 })));
 
-            return i.reply({ content: "### 🛖 CHUỒNG GÀ HIỆN CÓ", components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
+            const subResGa = await i.reply({ 
+                content: "### 🛖 CHUỒNG GÀ HIỆN CÓ", 
+                components: [new ActionRowBuilder().addComponents(selectGa)], 
+                ephemeral: true,
+                fetchReply: true 
+            });
+
+            // Sub-Collector riêng cho Menu để tránh lỗi "Tương tác thất bại"
+            const subCollectorGa = subResGa.createMessageComponentCollector({ time: 60000 });
+            subCollectorGa.on('collect', async subI => {
+                if (subI.customId === 'sel_ga_trade') {
+                    const chicken = myDb.gaCon.find(g => g.id.toString() === subI.values[0]);
+                    if (chicken) {
+                        myTrade.items.push(chicken);
+                        tradeData[msg.author.id].confirmed = false;
+                        tradeData[target.id].confirmed = false;
+
+                        await subI.update({ content: `✅ Đã đưa **${chicken.name}** ra bàn giao dịch!`, components: [] });
+                        return tradeMsg.edit({ embeds: [generateEmbed()] });
+                    }
+                }
+            });
+            return;
         }
 
-        // --- Xử lý khi chọn gà từ Menu ---
-        if (i.customId === 'sel_ga') {
-            const chicken = myDb.gaCon.find(g => g.id.toString() === i.values[0]);
-            if (chicken) {
-                myTrade.items.push(chicken);
-                // Reset trạng thái chốt của cả 2 khi có biến động vật phẩm
-                tradeData[msg.author.id].confirmed = false;
-                tradeData[target.id].confirmed = false;
-                await i.update({ content: `✨ Đã bắt con gà **${chicken.name}** ra bàn giao dịch!`, components: [] });
-                return tradeMsg.edit({ embeds: [generateEmbed()] });
-            }
-        }
-
-        // --- 2. Chỉnh Xu/Thóc (Giữ nguyên Sub-Collector để tránh lỗi tương tác) ---
+        // --- 2. CHỈNH XU/THÓC (GIỮ NGUYÊN SUB-COLLECTOR) ---
         if (i.customId === 'trade_xu' || i.customId === 'trade_thoc') {
             const type = i.customId === 'trade_xu' ? 'coins' : 'thoc';
             const label = type === 'coins' ? 'Xu 🪙' : 'Thóc 🌾';
@@ -520,20 +529,18 @@ if (msg.content.startsWith(":trade")) {
             return;
         }
 
-        // --- 3. Ký tên & Hủy ---
+        // --- 3. KÝ TÊN & HỦY ---
         if (i.customId === 'trade_confirm') {
             myTrade.confirmed = true;
             if (tradeData[msg.author.id].confirmed && tradeData[target.id].confirmed) {
                 const u1Tr = tradeData[msg.author.id];
                 const u2Tr = tradeData[target.id];
 
-                // Thực hiện trừ/cộng tài sản
                 u1.coins = (u1.coins - u1Tr.coins) + u2Tr.coins;
                 u2.coins = (u2.coins - u2Tr.coins) + u1Tr.coins;
                 u1.thoc = (u1.thoc - u1Tr.thoc) + u2Tr.thoc;
                 u2.thoc = (u2.thoc - u2Tr.thoc) + u1Tr.thoc;
 
-                // Hoán đổi gà
                 u1Tr.items.forEach(it => { u1.gaCon = u1.gaCon.filter(g => g.id !== it.id); u2.gaCon.push(it); });
                 u2Tr.items.forEach(it => { u2.gaCon = u2.gaCon.filter(g => g.id !== it.id); u1.gaCon.push(it); });
 
