@@ -212,14 +212,52 @@ if (msg.content === ":start") {
     
     return msg.reply("🎉 **CHÚC MỪNG!** Bạn đã nhận được mảnh đất đầu tiên và **1 con gà mặc định**.\n👉 Gõ `:thongtin` để xem trang trại hoặc `:chogaan` để bắt đầu kiếm trứng nhé!");
 }
-// --- ADMIN GIVE ---
+// --- ADMIN GIVE (Bản Nâng Cấp: Xu, Thóc, Trứng, Gà) ---
 if (msg.content.startsWith(":give")) {
-if (msg.author.id !== "873867371419422742") return msg.reply("❌ Quyền lực này không thuộc về bạn!");
-const args = msg.content.split(" "), target = msg.mentions.users.first(), type = args[2], amt = parseInt(args[3]);
-if (!target || !type || isNaN(amt)) return msg.reply("❌ `:give @user <xu/thoc/thuong/bac/vang> <số>`");
-const r = getUser(target.id);
-if (type === "xu") r.coins += amt; else if (type === "thoc") r.thoc += amt; else r.trung[type] += amt;
-saveData(); return msg.reply(`🎁 Đã tặng ${amt} ${type} cho <@${target.id}>!`);
+    // 1. Kiểm tra quyền Admin
+    if (msg.author.id !== "873867371419422742") return msg.reply("❌ Quyền lực này không thuộc về bạn!");
+
+    const args = msg.content.split(" ");
+    const target = msg.mentions.users.first();
+    const type = args[2]?.toLowerCase(); // xu, thoc, thuong, bac, vang, legendary, v.v.
+    const amt = parseInt(args[3]);
+
+    if (!target || !type || isNaN(amt) || amt <= 0) {
+        return msg.reply("❌ Cú pháp: `:give @user <loại> <số lượng>`\n💡 Loại: `xu`, `thoc`, `thuong`, `bac`, `vang` hoặc `tên_độ_hiếm_gà` (ví dụ: `legendary`)");
+    }
+
+    const r = data[target.id]; // Đảm bảo bạn dùng biến 'r' tham chiếu tới data của target
+    if (!r) return msg.reply("❌ Người này chưa khởi tạo trang trại!");
+
+    // 2. Xử lý tặng Xu và Thóc
+    if (type === "xu") {
+        r.coins = (r.coins || 0) + amt;
+    } else if (type === "thoc") {
+        r.thoc = (r.thoc || 0) + amt;
+    } 
+    // 3. Xử lý tặng Trứng (thuong, bac, vang)
+    else if (["thuong", "bac", "vang"].includes(type)) {
+        r.trung[type] = (r.trung[type] || 0) + amt;
+    } 
+    // 4. Xử lý tặng Gà (Theo độ hiếm)
+    else {
+        // Giả sử các giá trị type khác là tên độ hiếm (Common, Rare, Epic, Legendary...)
+        for (let i = 0; i < amt; i++) {
+            const newGa = {
+                id: Date.now() + i, // Tạo ID duy nhất
+                name: `Gà ${type.toUpperCase()}`,
+                rarity: type.charAt(0).toUpperCase() + type.slice(1), // Viết hoa chữ cái đầu
+                hp: 100,
+                atk: 20,
+                price: 500, // Giá trị mặc định hoặc tùy chỉnh theo độ hiếm
+                locked: false
+            };
+            r.gaCon.push(newGa);
+        }
+    }
+
+    saveData(); 
+    return msg.reply(`🎁 Đã tặng **${amt} ${type}** cho <@${target.id}> thành công!`);
 }
 // --- LỆNH: NÂNG CẤP ĐỒNG BỘ GIÁ LŨY TIẾN ---
 if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":upaptrung") {
@@ -1155,15 +1193,16 @@ if (msg.content === ":help") {
         .setFooter({ text: `Yêu cầu bởi ${msg.author.username}` });
 
     const response = await msg.reply({ embeds: [helpEmbed], components: [row] });
-
     const collector = response.createMessageComponentCollector({ 
         componentType: ComponentType.StringSelect, 
         time: 120000 
     });
 
     collector.on('collect', async i => {
-        if (i.user.id !== msg.author.id) return i.reply({ content: "❌ Menu này không dành cho bạn!", ephemeral: true });
-        
+        if (i.user.id !== msg.author.id) return i.reply({ content: "❌!", ephemeral: true });
+        // ... (Các case switch của bạn)
+        await i.update({ embeds: [updateEmbed] });
+    });
         let title = "", desc = "", color = "#3498DB";
         switch (i.values[0]) {
             case 'basic':
@@ -1191,11 +1230,12 @@ if (msg.content === ":help") {
         await i.update({ embeds: [updateEmbed] });
     });
 
-    collector.on('collect', () => {}); // Tránh lỗi Collector
-}
+    collector.on('end', () => {
+        response.edit({ components: [] }).catch(() => {});
+    });
+} // <--- Đóng lệnh if (:help)
 
-}); // Đây là dấu đóng của client.on('messageCreate', ...)
-
+}); // <--- CHỈ CÓ MỘT DẤU NÀY ĐỂ ĐÓNG client.on('messageCreate')
 // HÀM TIỆN ÍCH (Đặt ngoài messageCreate)
 function getSimilarity(str1, str2) {
     const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
