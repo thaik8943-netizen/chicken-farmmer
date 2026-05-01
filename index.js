@@ -929,7 +929,7 @@ if (msg.content.startsWith(":aptrung")) {
 }
 
 //----BÁN GÀ-----------
-// --- TRONG LỆNH :SELLGA ---
+// --- TRONG LỆNH :sellga (NÂNG CẤP NHẬN DIỆN HỆ) ---
 if (msg.content.startsWith(":sellga")) {
     const u = data[msg.author.id];
     const args = msg.content.split(" ");
@@ -937,43 +937,44 @@ if (msg.content.startsWith(":sellga")) {
     if (!rawInput) return msg.reply("❌ Nhập tên hoặc hệ gà muốn bán!");
 
     const inputClean = cleanText(rawInput);
-    const validRarities = ["common", "rare", "epic", "legendary"];
 
-    // 1. Tìm gà dựa trên độ giống nhau > 80% hoặc khớp hệ
+    // 1. Tìm gà dựa trên tên HOẶC hệ (Độ tương đồng > 80%)
     const allMatches = u.gaCon.filter(g => {
-        const rarityClean = cleanText(g.rarity);
+        const rarityClean = cleanText(g.rarity); // Ví dụ: "legendary⚪" -> "legendary"
         const nameClean = cleanText(g.name);
 
-        // Kiểm tra xem có khớp hệ chính xác không
-        if (validRarities.includes(inputClean) && rarityClean === inputClean) return true;
+        // Kiểm tra độ tương đồng với HỆ (Rarity)
+        const isRarityMatch = similarity(rarityClean, inputClean) >= 0.8;
+        
+        // Kiểm tra độ tương đồng với TÊN (Name)
+        const isNameMatch = similarity(nameClean, inputClean) >= 0.8;
 
-        // Kiểm tra độ giống nhau của tên (> 80%)
-        return similarity(nameClean, inputClean) >= 0.8;
+        return isRarityMatch || isNameMatch;
     });
 
     if (allMatches.length === 0) {
-        return msg.reply(`❌ Không tìm thấy gà nào giống với "**${rawInput}**" tầm 80%.`);
+        return msg.reply(`❌ Không tìm thấy gà nào thuộc hệ hoặc tên giống với "**${rawInput}**".`);
     }
 
-    // 2. Lọc gà bị khóa
+    // 2. Lọc gà bị khóa (Giữ lại gà quan trọng)
     const canSell = allMatches.filter(g => !g.locked);
     const lockedCount = allMatches.filter(g => g.locked).length;
 
     if (canSell.length === 0) {
-        return msg.reply(`🛡️ Tất cả gà khớp với "**${rawInput}**" đều đang bị **KHÓA**.`);
+        return msg.reply(`🛡️ Những con gà bạn muốn bán đều đang bị **KHÓA**.`);
     }
 
-    // 3. Tính tiền và cập nhật
+    // 3. Tính tiền và cập nhật dữ liệu
     let totalMoney = canSell.reduce((sum, g) => sum + (g.price || 10), 0);
     const canSellIds = canSell.map(g => g.id);
 
     u.gaCon = u.gaCon.filter(g => !canSellIds.includes(g.id));
     u.coins += totalMoney;
-    saveData(msg.author.id);
+    await saveData(msg.author.id); // Lưu lên MongoDB
 
-    // 4. Thông báo
-    let response = `💰 Đã bán **${canSell.length}** con gà gần giống với "**${rawInput}**".\n✅ Thu về: **${totalMoney.toLocaleString()} Xu**.`;
-    if (lockedCount > 0) response += `\n⚠️ Đã giữ lại **${lockedCount}** con đang khóa.`;
+    // 4. Thông báo kết quả
+    let response = `💰 Đã bán **${canSell.length}** con gà (Tên/Hệ khớp với "**${rawInput}**").\n✅ Thu về: **${totalMoney.toLocaleString()} Xu**.`;
+    if (lockedCount > 0) response += `\n⚠️ Lưu ý: Đã giữ lại **${lockedCount}** con đang được đặt khóa.`;
 
     return msg.reply(response);
 }
