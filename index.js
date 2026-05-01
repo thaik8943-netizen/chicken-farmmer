@@ -379,7 +379,7 @@ if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":up
     
     return msg.reply(`🚀 Nâng cấp thành công! **${typeName}** đã lên **Lv.${u[key]}**.\n💸 Bạn đã chi: **${cost.toLocaleString()} Coins**.`);
 }
-// --- LỆNH: GIAO DỊCH GÀ (TRADE) ---
+// --- LỆNH: GIAO DỊCH GÀ (TRADE) - BẢN SỬA LỖI TƯƠNG TÁC ---
 if (msg.content.startsWith(":trade")) {
     const target = msg.mentions.users.first();
     if (!target || target.id === msg.author.id || target.bot) return msg.reply("❌ Tag người chơi bạn muốn giao dịch!");
@@ -396,6 +396,7 @@ if (msg.content.startsWith(":trade")) {
     const generateEmbed = () => {
         const createField = (id) => {
             const d = tradeData[id];
+            const userName = id === msg.author.id ? msg.author.username : target.username;
             return `🪙 Xu: **${d.coins.toLocaleString()}**\n🌾 Thóc: **${d.thoc.toLocaleString()}**\n` +
                    `🐔 Gà: ${d.items.length > 0 ? d.items.map(g => `\`${g.name}\``).join(", ") : "Trống"}\n` +
                    `${d.confirmed ? "✅ **ĐÃ CHỐT**" : "⏳ Đang chuẩn bị..."}`;
@@ -407,7 +408,7 @@ if (msg.content.startsWith(":trade")) {
                 { name: `👤 ${msg.author.username}`, value: createField(msg.author.id), inline: true },
                 { name: `👤 ${target.username}`, value: createField(target.id), inline: true }
             )
-            .setFooter({ text: "Sử dụng các nút bên dưới để điều chỉnh vật phẩm." });
+            .setFooter({ text: "Sử dụng các nút bên dưới để điều chỉnh vật phẩm. Giao dịch hết hạn sau 5 phút." });
     };
 
     const mainRow = new ActionRowBuilder().addComponents(
@@ -419,84 +420,124 @@ if (msg.content.startsWith(":trade")) {
     );
 
     const tradeMsg = await msg.reply({ embeds: [generateEmbed()], components: [mainRow] });
+    
+    // Collector lắng nghe tất cả tương tác (Button & SelectMenu)
     const collector = tradeMsg.createMessageComponentCollector({ time: 300000 });
 
     collector.on('collect', async i => {
-        if (i.user.id !== msg.author.id && i.user.id !== target.id) return i.reply({ content: "Nút này không dành cho bạn!", ephemeral: true });
+        // Chỉ cho phép 2 người trong cuộc tương tác
+        if (i.user.id !== msg.author.id && i.user.id !== target.id) {
+            return i.reply({ content: "Nút này không dành cho bạn!", ephemeral: true });
+        }
 
         const myTrade = tradeData[i.user.id];
         const myDb = data[i.user.id];
 
-        if (myTrade.confirmed && i.customId !== 'trade_cancel') return i.reply({ content: "Đã chốt không thể sửa!", ephemeral: true });
-
-        if (i.customId === 'trade_ga') {
-            const availableGa = myDb.gaCon.filter(g => !g.locked);
-            if (availableGa.length === 0) return i.reply({ content: "Chuồng bạn không có gà hợp lệ!", ephemeral: true });
-
-            const select = new StringSelectMenuBuilder().setCustomId('sel_ga').setPlaceholder('Chọn gà...')
-                .addOptions(availableGa.slice(0, 25).map(g => ({ label: `${g.name} (${g.rarity})`, value: g.id.toString() })));
-            return i.reply({ content: "Chọn gà muốn thêm:", components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
+        // Nếu đã chốt thì không cho sửa (trừ nút Hủy)
+        if (myTrade.confirmed && i.customId !== 'trade_cancel') {
+            return i.reply({ content: "Bạn đã chốt rồi, không thể chỉnh sửa thêm!", ephemeral: true });
         }
 
+        // 1. Xử lý nút Chọn Gà
+        if (i.customId === 'trade_ga') {
+            const availableGa = myDb.gaCon.filter(g => !g.locked && !myTrade.items.some(it => it.id === g.id));
+            if (availableGa.length === 0) return i.reply({ content: "Bạn không còn gà nào hợp lệ để thêm!", ephemeral: true });
+
+            const select = new StringSelectMenuBuilder()
+                .setCustomId('sel_ga')
+                .setPlaceholder('Chọn gà muốn đưa lên sàn...')
+                .addOptions(availableGa.slice(0, 25).map(g => ({
+                    label: `${g.name} (${g.rarity.split(' ')[0]})`,
+                    description: `HP: ${g.hp} | Giá: ${g.price}`,
+                    value: g.id.toString()
+                })));
+
+            return i.reply({ 
+                content: "Vui lòng chọn gà từ danh sách dưới đây:", 
+                components: [new ActionRowBuilder().addComponents(select)], 
+                ephemeral: true 
+            });
+        }
+
+        // 2. Xử lý Select Menu chọn gà (Phản hồi từ tin nhắn ephemeral)
+        if (i.customId === 'sel_ga') {
+            const chicken = myDb.gaCon.find(g => g.id.toString() === i.values[0]);
+            if (chicken) {
+                myTrade.items.push(chicken);
+                myTrade.confirmed = false; // Reset trạng thái chốt nếu thêm đồ mới
+                tradeData[msg.author.id].confirmed = false;
+                tradeData[target.id].confirmed = false;
+
+                await i.update({ content: `✅ Đã thêm gà **${chicken.name}** vào bàn giao dịch!`, components: [] });
+                return tradeMsg.edit({ embeds: [generateEmbed()] });
+            }
+        }
+
+        // 3. Xử lý Xu/Thóc (Nút điều chỉnh)
         if (i.customId === 'trade_xu' || i.customId === 'trade_thoc') {
             const type = i.customId === 'trade_xu' ? 'coins' : 'thoc';
             const label = type === 'coins' ? 'Xu 🪙' : 'Thóc 🌾';
-            const adjRow1 = new ActionRowBuilder().addComponents(
+            
+            const adjRow = new ActionRowBuilder().addComponents(
+                new ButtonBuilder().setCustomId(`adj_${type}_1000`).setLabel('+1000').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`adj_${type}_100`).setLabel('+100').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`adj_${type}_10`).setLabel('+10').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`adj_${type}_1`).setLabel('+1').setStyle(ButtonStyle.Success),
-            );
-            const adjRow2 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`adj_${type}_-100`).setLabel('-100').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId(`adj_${type}_-10`).setLabel('-10').setStyle(ButtonStyle.Danger),
-                new ButtonBuilder().setCustomId(`adj_${type}_-1`).setLabel('-1').setStyle(ButtonStyle.Danger),
+                new ButtonBuilder().setCustomId(`adj_${type}_-1000`).setLabel('-1000').setStyle(ButtonStyle.Danger),
             );
-            return i.reply({ content: `Đang điều chỉnh **${label}**. Hiện tại: **${myTrade[type]}**`, components: [adjRow1, adjRow2], ephemeral: true });
+            return i.reply({ content: `Điều chỉnh **${label}**. Hiện tại: **${myTrade[type].toLocaleString()}**`, components: [adjRow], ephemeral: true });
         }
 
+        // 4. Xử lý các nút cộng trừ tiền/thóc
         if (i.customId.startsWith('adj_')) {
             const [, type, amount] = i.customId.split('_');
             const val = parseInt(amount);
-            const currentInTrade = myTrade[type];
-            const maxAvailable = myDb[type];
-
-            if (currentInTrade + val < 0) return i.update({ content: `❌ Không thể giảm xuống dưới 0!` });
-            if (currentInTrade + val > maxAvailable) return i.update({ content: `❌ Bạn chỉ có tối đa **${maxAvailable.toLocaleString()}**!` });
+            
+            if (myTrade[type] + val < 0) return i.update({ content: "❌ Không thể giảm xuống dưới 0!" });
+            if (myTrade[type] + val > myDb[type]) return i.update({ content: `❌ Bạn chỉ có tối đa ${myDb[type].toLocaleString()}!` });
 
             myTrade[type] += val;
-            await i.update({ content: `Đã điều chỉnh. Hiện tại đưa lên sàn: **${myTrade[type].toLocaleString()}**` });
+            myTrade.confirmed = false; // Đổi số lượng là hủy trạng thái chốt
+            tradeData[msg.author.id].confirmed = false;
+            tradeData[target.id].confirmed = false;
+
+            await i.update({ content: `Đã cập nhật: **${myTrade[type].toLocaleString()}** ${type === 'coins' ? 'Xu' : 'Thóc'}` });
             return tradeMsg.edit({ embeds: [generateEmbed()] });
         }
 
-        if (i.isStringSelectMenu()) {
-            const chicken = myDb.gaCon.find(g => g.id.toString() === i.values[0]);
-            if (!myTrade.items.some(it => it.id === chicken.id)) {
-                myTrade.items.push(chicken);
-                await i.update({ content: `✅ Đã thêm \`${chicken.name}\`!`, components: [] });
-                return tradeMsg.edit({ embeds: [generateEmbed()] });
-            }
-            return i.update({ content: "Gà này đã có trên bàn trade!", components: [] });
-        }
-
+        // 5. Xử lý Chốt giao dịch
         if (i.customId === 'trade_confirm') {
             myTrade.confirmed = true;
+            
             if (tradeData[msg.author.id].confirmed && tradeData[target.id].confirmed) {
-                const u1Tr = tradeData[msg.author.id]; const u2Tr = tradeData[target.id];
-                u1.coins -= u1Tr.coins; u1.coins += u2Tr.coins;
-                u2.coins -= u2Tr.coins; u2.coins += u1Tr.coins;
-                u1.thoc -= u1Tr.thoc; u1.thoc += u2Tr.thoc;
-                u2.thoc -= u2Tr.thoc; u2.thoc += u1Tr.thoc;
+                // Thực hiện hoán đổi tài sản
+                const u1Tr = tradeData[msg.author.id];
+                const u2Tr = tradeData[target.id];
+
+                u1.coins = (u1.coins - u1Tr.coins) + u2Tr.coins;
+                u2.coins = (u2.coins - u2Tr.coins) + u1Tr.coins;
+                u1.thoc = (u1.thoc - u1Tr.thoc) + u2Tr.thoc;
+                u2.thoc = (u2.thoc - u2Tr.thoc) + u1Tr.thoc;
+
                 u1Tr.items.forEach(it => { u1.gaCon = u1.gaCon.filter(g => g.id !== it.id); u2.gaCon.push(it); });
                 u2Tr.items.forEach(it => { u2.gaCon = u2.gaCon.filter(g => g.id !== it.id); u1.gaCon.push(it); });
 
-                saveData(msg.author.id); collector.stop();
-                return i.update({ content: "🎊 **GIAO DỊCH THÀNH CÔNG!**", embeds: [generateEmbed()], components: [] });
+                await saveData(msg.author.id);
+                await saveData(target.id);
+                collector.stop();
+                return i.update({ content: "🎊 **GIAO DỊCH THÀNH CÔNG!** Tài sản đã được hoán đổi.", embeds: [generateEmbed()], components: [] });
             }
-        } else if (i.customId === 'trade_cancel') {
-            collector.stop();
-            return i.update({ content: `🚫 Giao dịch bị hủy bởi <@${i.user.id}>`, embeds: [], components: [] });
+            await i.update({ embeds: [generateEmbed()] });
         }
-        await i.update({ embeds: [generateEmbed()] });
+
+        // 6. Hủy giao dịch
+        if (i.customId === 'trade_cancel') {
+            collector.stop();
+            return i.update({ content: `🚫 Giao dịch đã bị hủy bởi <@${i.user.id}>.`, embeds: [], components: [] });
+        }
+    });
+
+    collector.on('end', (collected, reason) => {
+        if (reason === 'time') tradeMsg.edit({ content: "⏰ Giao dịch đã hết thời gian (5 phút).", components: [] }).catch(() => {});
     });
 }
 // --- LỆNH: TRIỆU HỒI SHOP & THÔNG BÁO TOÀN CẦU ---
