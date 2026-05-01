@@ -1,20 +1,14 @@
 const http = require('http');
 http.createServer((req, res) => {
-  res.write("Gà đang online!");
-  res.end();
+    res.write("Gà đang online!");
+    res.end();
 }).listen(8080);
 
 require('dotenv').config();
 const { 
-    Client, 
-    GatewayIntentBits, 
-    Partials, 
-    EmbedBuilder, 
-    ActionRowBuilder, 
-    StringSelectMenuBuilder,  
-    ButtonBuilder, 
-    ButtonStyle,
-    ComponentType,
+    Client, GatewayIntentBits, Partials, EmbedBuilder, 
+    ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, 
+    ButtonStyle, ComponentType 
 } = require('discord.js');
 const fs = require('fs');
 
@@ -23,7 +17,7 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// ================= DATABASE & UTILS (Đưa lên trước để các hàm khác sử dụng) =================
+// ================= DATABASE & UTILS =================
 const DATA_FILE = './data.json';
 let data = {};
 if (fs.existsSync(DATA_FILE)) { 
@@ -36,7 +30,7 @@ function getUser(id) {
         data[id] = {
             started: false, thoc: 1000, coins: 500, lvGa: 0, lvNo: 0, lvAp: 0,
             eatToday: 0, lastEatReset: 0, trung: { thuong: 10, bac: 5, vang: 2 },
-            gaCon: [], dangAp: [], equipped: null, lastDaily: 0, lastSteal: 0, lastTrong: 0
+            gaCon: [], dangAp: [], equippedGa: null, lastDaily: 0, lastSteal: 0, lastTrong: 0
         };
     }
     return data[id];
@@ -46,16 +40,6 @@ function getUser(id) {
 const PREFIX = ["Thần", "Thánh", "Cổ", "Vương", "Đế", "Huyền", "Linh", "Ma", "Quỷ", "Phật", "Tiên", "Thú", "Chiến", "Sát", "Hộ", "Pháp", "Long", "Phượng", "Kỳ", "Lân", "Hỏa", "Băng", "Lôi", "Phong", "Thổ"];
 const MID = ["Ánh_Sáng", "Bóng_Tối", "Hỏa_Ngục", "Băng_Giá", "Sấm_Sét", "Cuồng_Phong", "Kim_Cương", "Vàng_Ròng", "Đá_Quý", "Vô_Cực", "Hư_Không", "Tử_Vong", "Sự_Sống", "Hỗn_Mang", "Thanh_Khiết", "Tàn_Bạo", "Dũng_Mãnh", "Nhanh_Nhẹn", "Trường_Sinh", "Bất_Diệt"];
 const SUFFIX = ["Kê", "Gà", "Điểu", "Quái", "Thần", "Tướng", "Sĩ", "Binh", "Chủ", "Hậu", "Hoàng", "Vương", "Lão", "Phu", "Sư", "Tổ", "Tộc", "Long", "Lân", "Quy"];
-
-// Đã xóa bỏ biến u lỗi ở đây
-
-function getChickenPrice(rarity) {
-    const r = rarity.toLowerCase();
-    if (r.includes("legendary")) return Math.floor(Math.random() * (300 - 200 + 1)) + 200;
-    if (r.includes("epic")) return Math.floor(Math.random() * (200 - 100 + 1)) + 100;
-    if (r.includes("rare")) return Math.floor(Math.random() * (100 - 50 + 1)) + 50;
-    return Math.floor(Math.random() * (50 - 10 + 1)) + 10;
-}
 
 const GA_LIST = [];
 let nameCounter = 0;
@@ -71,162 +55,103 @@ for (let p of PREFIX) {
         }
     }
 }
-
-// ... (Tiếp tục các hàm formatTime, getHint và sự kiện messageCreate bên dưới)
-function getUser(id) {
-    if (!data[id]) {
-        data[id] = {
-            started: false, thoc: 1000, coins: 500, lvGa: 0, lvNo: 0, lvAp: 0,
-            eatToday: 0, lastEatReset: 0, trung: { thuong: 10, bac: 5, vang: 2 },
-            gaCon: [], dangAp: [], equipped: null, lastDaily: 0, lastSteal: 0, lastTrong: 0
-        };
-    }
-    return data[id];
-}
-
-// ĐÃ THÊM NỘI DUNG CHO HÀM NÀY
+// (Tiếp tục dán Phần 2 ngay dưới đây...)
+// ================= HÀM TIỆN ÍCH =================
 function formatTime(ms) {
     if (ms <= 0) return "Xong!";
     const h = Math.floor(ms / 3600000), m = Math.floor((ms % 3600000) / 60000), s = Math.floor((ms % 60000) / 1000);
     return `${h > 0 ? h + 'h ' : ''}${m}p ${s}s`;
 }
 
-// ĐÃ THÊM NỘI DUNG CHO HÀM NÀY
-function getHint(secret, guess) {
-    let res = [], sArr = secret.split(''), gArr = guess.split('');
-    for (let i = 0; i < 5; i++) { if (gArr[i] === sArr[i]) { res[i] = '🟢'; sArr[i] = null; gArr[i] = null; } }
-    for (let i = 0; i < 5; i++) {
-        if (gArr[i]) {
-            let idx = sArr.indexOf(gArr[i]);
-            if (idx !== -1) { res[i] = '🟡'; sArr[idx] = null; } else { res[i] = '🔴'; }
-        }
-    }
-    return res.join(' ');
-}
-
-async function updateTopRoles(guild) { /* Code logic cập nhật role nếu cần */ }
-
-// ================= ROLE AUTO-UPDATE =================
-async function updateTopRoles(guild) {
-const TOP_ROLES = { 1: "Trùm Cuối Kê Gia", 2: "Đại Gia Chăn Gà", 3: "Phú Hộ Trại Gà" };
-const sorted = Object.entries(data).filter(([id, u]) => u.started).sort(([, a], [, b]) => b.coins - a.coins).slice(0, 3);
-for (let i = 0; i < 3; i++) {
-const entry = sorted[i]; if (!entry) continue;
-const role = guild.roles.cache.find(r => r.name === TOP_ROLES[i + 1]);
-if (!role) continue;
-role.members.forEach(m => { if (m.id !== entry[0]) m.roles.remove(role); });
-try { const member = await guild.members.fetch(entry[0]); if (member) await member.roles.add(role); } catch (e) {}
-}
+function getSimilarity(str1, str2) {
+    const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
+    const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
+    if (s1 === s2) return 1.0;
+    const bigrams1 = new Set();
+    for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
+    const bigrams2 = new Set();
+    for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
+    let intersect = 0;
+    for (let b of bigrams1) { if (bigrams2.has(b)) intersect++; }
+    return (2.0 * intersect) / (bigrams1.size + bigrams2.size);
 }
 
 // ================= BOT COMMANDS =================
 client.on("messageCreate", async (msg) => {
-if (msg.author.bot || !msg.content.startsWith(":")) return;
-const u = getUser(msg.author.id), now = Date.now();
-const today = new Date().setHours(0, 0, 0, 0);
-if (u.lastEatReset !== today) { u.eatToday = 0; u.lastEatReset = today; }
+    if (msg.author.bot || !msg.content.startsWith(":")) return;
+    
+    const u = getUser(msg.author.id);
+    const now = Date.now();
+    const today = new Date().setHours(0, 0, 0, 0);
 
-// Tự động nở trứng
-if (u.dangAp && u.dangAp.length > 0) {
-    let no = [];
-    u.dangAp = u.dangAp.filter(e => {
-        if (now >= e.finishAt) {
-            for (let i = 0; i < e.amount; i++) {
-                let selectedRarity = "Common ⚪";
-                let r = Math.random() * 100; // Quay số từ 0 - 100
+    if (u.lastEatReset !== today) { u.eatToday = 0; u.lastEatReset = today; }
+    }
 
-                // CẤU TRÚC TỈ LỆ (Tính trên Trứng Vàng - Loại trứng tốt nhất)
-                if (e.type === "vang") {
-                    // Legendary: 0.01% (10.000 quả mới có 1)
-                    if (r < 0.01) selectedRarity = "Legendary 🟡";
-                    // Epic: 1% (Đúng 100 quả mới ra 1 con)
-                    else if (r < 1.01) selectedRarity = "Epic 🟣";
-                    // Rare: 15% 
-                    else if (r < 16) selectedRarity = "Rare 🔵";
-                    else selectedRarity = "Common ⚪";
-                } 
-                else if (e.type === "bac") {
-                    // Trứng bạc: Cực hiếm mới ra Epic, Legendary gần như không tưởng
-                    if (r < 0.001) selectedRarity = "Legendary 🟡";
-                    else if (r < 0.1) selectedRarity = "Epic 🟣";
-                    else if (r < 8) selectedRarity = "Rare 🔵";
-                    else selectedRarity = "Common ⚪";
+    // --- LOGIC TỰ ĐỘNG NỞ TRỨNG ---
+    if (u.dangAp && u.dangAp.length > 0) {
+        let no = [];
+        u.dangAp = u.dangAp.filter(e => {
+            if (now >= e.finishAt) {
+                for (let i = 0; i < e.amount; i++) {
+                    let r = Math.random() * 100;
+                    let selectedRarity = "Common ⚪";
+
+                    if (e.type === "vang") {
+                        if (r < 0.01) selectedRarity = "Legendary 🟡";
+                        else if (r < 1.01) selectedRarity = "Epic 🟣";
+                        else if (r < 16) selectedRarity = "Rare 🔵";
+                    } else if (e.type === "bac") {
+                        if (r < 0.001) selectedRarity = "Legendary 🟡";
+                        else if (r < 0.1) selectedRarity = "Epic 🟣";
+                        else if (r < 8) selectedRarity = "Rare 🔵";
+                    } else {
+                        if (r < 1) selectedRarity = "Rare 🔵";
+                    }
+
+                    const pureRarity = selectedRarity.split(' ')[0];
+                    let pool = GA_LIST.filter(g => g.rarity.includes(pureRarity));
+                    if (pool.length === 0) pool = GA_LIST.filter(g => g.rarity.includes("Common"));
+                    let g = pool[Math.floor(Math.random() * pool.length)];
+
+                    const stats = {
+                        "Common ⚪": { hp: [50, 100], price: [10, 30] },
+                        "Rare 🔵":   { hp: [200, 400], price: [200, 500] },
+                        "Epic 🟣":   { hp: [1000, 2000], price: [5000, 15000] },
+                        "Legendary 🟡": { hp: [8000, 15000], price: [100000, 300000] } 
+                    };
+
+                    const s = stats[selectedRarity];
+                    u.gaCon.push({ 
+                        ...g, 
+                        id: Date.now() + Math.random(), 
+                        locked: false,
+                        rarity: selectedRarity,
+                        hp: Math.floor(Math.random() * (s.hp[1] - s.hp[0] + 1)) + s.hp[0],
+                        price: Math.floor(Math.random() * (s.price[1] - s.price[0] + 1)) + s.price[0]
+                    });
+                    no.push(selectedRarity);
                 }
-                else {
-                    // Trứng thường: 99% Common
-                    if (r < 1) selectedRarity = "Rare 🔵";
-                    else selectedRarity = "Common ⚪";
-                }
+                return false;
+            } return true;
+        });
 
-                const pureRarity = selectedRarity.split(' ')[0];
-                let pool = GA_LIST.filter(g => g.rarity.includes(pureRarity));
-                if (pool.length === 0) pool = GA_LIST.filter(g => g.rarity.includes("Common"));
-
-                let g = pool[Math.floor(Math.random() * pool.length)];
-
-                // CHỈ SỐ CÂN BẰNG LẠI (Dựa trên độ hiếm mới)
-                const stats = {
-                    "Common ⚪": { hp: [50, 100], price: [10, 30] },
-                    "Rare 🔵":   { hp: [200, 400], price: [200, 500] },
-                    "Epic 🟣":   { hp: [1000, 2000], price: [5000, 15000] },
-                    "Legendary 🟡": { hp: [8000, 15000], price: [100000, 300000] } 
-                };
-
-                const s = stats[selectedRarity];
-                const finalHP = Math.floor(Math.random() * (s.hp[1] - s.hp[0] + 1)) + s.hp[0];
-                const finalPrice = Math.floor(Math.random() * (s.price[1] - s.price[0] + 1)) + s.price[0];
-
-                u.gaCon.push({ 
-                    ...g, 
-                    id: Date.now() + Math.random(), 
-                    locked: false,
-                    rarity: selectedRarity,
-                    hp: finalHP,
-                    price: finalPrice
-                });
-                no.push(selectedRarity);
+        if (no.length > 0) {
+            saveData();
+            let congrats = `🐣 **KẾT QUẢ ẤP TRỨNG:**\n${no.map(n => `> ✨ Bạn đã nhận được 1 gà **${n}**`).join("\n")}`;
+            if (no.some(n => n.includes("Legendary"))) {
+                congrats = `🌟 **HUYỀN THOẠI XUẤT HIỆN!** 🌟\nChúc mừng <@${msg.author.id}> đã sở hữu được gà **Legendary 🟡** cực hiếm!!!`;
             }
-            return false;
-        } return true;
-    });
-
-    if (no.length > 0) {
-        saveData();
-        let congrats = `🐣 **KẾT QUẢ ẤP TRỨNG:**\n${no.map(n => `> ✨ Bạn đã nhận được 1 gà **${n}**`).join("\n")}`;
-        
-        // Thông báo đặc biệt khi nổ hũ Epic hoặc Legendary
-        if (no.some(n => n.includes("Legendary"))) {
-            congrats = `🌟 **HUYỀN THOẠI XUẤT HIỆN!** 🌟\nChúc mừng <@${msg.author.id}> đã sở hữu được gà **Legendary 🟡** cực hiếm với tỉ lệ 0.01%!!!`;
-        } else if (no.some(n => n.includes("Epic"))) {
-            congrats = `🔥 **TIN HOT:** <@${msg.author.id}> vừa nở được một chú gà **Epic 🟣** xịn xò!`;
+            msg.reply(congrats);
         }
-        
-        msg.reply(congrats);
-    }
-}
-// --- LỆNH: BẮT ĐẦU (:start) ---
-if (msg.content === ":start") {
-    if (u.started && u.gaCon.length > 0) {
-        return msg.reply("🌾 Bạn đã sở hữu trang trại rồi, đừng bắt đầu lại từ đầu chứ!");
     }
 
-    // Khởi tạo người chơi mới
-    u.started = true;
-    u.coins = 500;
-    u.thoc = 1000;
-    
-    // Tặng con gà đầu tiên (Lấy con gà đầu tiên trong danh sách Common)
-    const firstChicken = GA_LIST[0]; 
-    u.gaCon.push({ 
-        ...firstChicken, 
-        id: Date.now(), 
-        locked: false 
-    });
-
-    saveData();
-    
-    return msg.reply("🎉 **CHÚC MỪNG!** Bạn đã nhận được mảnh đất đầu tiên và **1 con gà mặc định**.\n👉 Gõ `:thongtin` để xem trang trại hoặc `:chogaan` để bắt đầu kiếm trứng nhé!");
-}
+    // --- LỆNH: :start ---
+    if (msg.content === ":start") {
+        if (u.started) return msg.reply("🌾 Bạn đã có trang trại!");
+        u.started = true;
+        saveData();
+        return msg.reply("🎉 Khởi tạo thành công! Gõ `:daily` nhận thóc.");
+    }
 // --- ADMIN GIVE (Bản Nâng Cấp: Xu, Thóc, Trứng, Gà) ---
 if (msg.content.startsWith(":give")) {
     // 1. Kiểm tra quyền Admin
@@ -614,44 +539,22 @@ if (msg.content.startsWith(":equip")) {
         return msg.reply("❌ Không tìm thấy con gà nào có tên tương tự trong chuồng của bạn!");
     }
 }
-// --- LỆNH: CHO GÀ ĂN ---
-if (msg.content.startsWith(":chogaan")) {
-    const args = msg.content.split(" ");
-    let sl = args[1] === "all" ? Math.floor(u.thoc / 50) : parseInt(args[1]);
-
-    if (isNaN(sl) || sl <= 0) return msg.reply("❌ Cú pháp: `:chogaan <số lượng/all>` (50 thóc = 1 lần thu hoạch)");
-    if (u.thoc < sl * 50) return msg.reply(`❌ Bạn không đủ thóc! Cần **${sl * 50} thóc** để cho ăn ${sl} lần.`);
-
-    u.thoc -= sl * 50;
-    let nhan = { thuong: 0, bac: 0, vang: 0 };
-    
-    // Bonus từ nâng cấp (lvGa): Mỗi cấp tăng thêm 0.5% tỉ lệ trứng xịn
-    const upgradeBonus = (u.lvGa || 0) * 0.005; 
-
-    for (let i = 0; i < sl; i++) {
-        let r = Math.random();
-        
-        // Tỉ lệ Vàng: 1% gốc + bonus
-        if (r < 0.01 + upgradeBonus) {
-            nhan.vang++;
-        } 
-        // Tỉ lệ Bạc: 6% gốc + bonus (tổng cộng dồn là 0.01 + 0.06 = 0.07)
-        else if (r < 0.07 + (upgradeBonus * 2)) { 
-            nhan.bac++;
-        } 
-        // Còn lại là Thường: ~93%
-        else {
-            nhan.thuong++;
+// --- LỆNH CHO GÀ ĂN ---
+    if (msg.content.startsWith(":chogaan")) {
+        const args = msg.content.split(" ");
+        let sl = args[1] === "all" ? Math.floor(u.thoc / 50) : parseInt(args[1]);
+        if (isNaN(sl) || sl <= 0) return msg.reply("❌ Cú pháp: `:chogaan <số lượng/all>`");
+        if (u.thoc < sl * 50) return msg.reply("❌ Thiếu thóc!");
+        u.thoc -= sl * 50;
+        let nhan = { thuong: 0, bac: 0, vang: 0 };
+        for (let i = 0; i < sl; i++) {
+            let r = Math.random();
+            if (r < 0.01) nhan.vang++; else if (r < 0.07) nhan.bac++; else nhan.thuong++;
         }
+        u.trung.thuong += nhan.thuong; u.trung.bac += nhan.bac; u.trung.vang += nhan.vang;
+        saveData();
+        msg.reply(`🌾 Đã dùng ${sl * 50} thóc. Thu về: 🥚 ${nhan.thuong} Thường, 🥈 ${nhan.bac} Bạc, 🥇 ${nhan.vang} Vàng.`);
     }
-
-    u.trung.thuong += nhan.thuong;
-    u.trung.bac += nhan.bac;
-    u.trung.vang += nhan.vang;
-    
-    saveData();
-    return msg.reply(`🌾 Bạn đã dùng **${sl * 50} thóc**. Thu hoạch được: 🥚 **${nhan.thuong}** Thường, 🥈 **${nhan.bac}** Bạc, 🥇 **${nhan.vang}** Vàng.`);
-}
 // --- TRỘM GÀ BẺ KHÓA ---
 if (msg.content.startsWith(":tromga")) {
 const target = msg.mentions.users.first();
@@ -1209,7 +1112,6 @@ if (msg.content === ":help") {
         componentType: ComponentType.StringSelect, 
         time: 120000 
     });
-
     collector.on('collect', async i => {
         if (i.user.id !== msg.author.id) return i.reply({ content: "❌!", ephemeral: true });
 
