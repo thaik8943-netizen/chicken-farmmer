@@ -1344,6 +1344,10 @@ if (msg.content === ":chuonga") {
         await i.update(generateChuongMessage(page, currentFilter));
     });
 }
+// --- 1. KHAI BÁO BIẾN TOÀN CỤC ---
+let worldBoss = null;
+const BOSS_IMAGE = "https:// preview.redd.it/rooster-fighter-teaser-visual-v0-1cl0lyb9yqed1.jpg?auto=webp&s=3f71c6d3284959f6385317e0892f396417d4727d"; // Link ảnh Rooster Fighter
+
 // --- 2. HỆ THỐNG ĐẤU TRƯỜNG SINH TỬ ---
 
 if (msg.content.startsWith(":spawnboss")) {
@@ -1382,28 +1386,34 @@ if (msg.content.startsWith(":spawnboss")) {
         )
         .addFields({ name: '⏱️ Đóng cửa sau', value: `<t:${Math.floor(worldBoss.endTime / 1000)}:R>`, inline: true })
         .setColor("#E74C3C")
-        .setImage("https://i.imgur.com/8E9p6fS.gif")
-        .setFooter({ text: "Mọi thành viên đều có thể tham gia tương tác!" });
+        .setImage(BOSS_IMAGE)
+        .setFooter({ text: "Tất cả mọi người đều có thể tham gia!" });
 
     const bossRow = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('boss_attack').setLabel('⚔️ TUNG ĐÒN').setStyle(ButtonStyle.Danger),
         new ButtonBuilder().setCustomId('boss_status').setLabel('📊 TOP CHIẾN BINH').setStyle(ButtonStyle.Secondary)
     );
 
+    // Gửi thông báo đến mọi kênh có thể gửi tin nhắn
     client.guilds.cache.forEach(guild => {
         const channel = guild.systemChannel || guild.channels.cache.find(ch => 
             ch.type === 0 && ch.permissionsFor(guild.members.me).has("SendMessages")
         );
-        if (channel) channel.send({ content: "🔔 **LOA LOA LOA! ĐÃ MỞ CỬA ĐẤU TRƯỜNG GÀ ĐẠI CHIẾN!**", embeds: [bossEmbed], components: [bossRow] }).catch(() => {});
+        if (channel) {
+            channel.send({ 
+                content: "🔔 **LOA LOA LOA! ĐẠI CHIẾN GÀ RỪNG ĐÃ KHAI MỞ TOÀN CẦU!**", 
+                embeds: [bossEmbed], 
+                components: [bossRow] 
+            }).catch(() => {});
+        }
     });
 
-    // Xử lý khi hết thời gian (Thua cuộc)
     setTimeout(() => {
         if (worldBoss && worldBoss.isActive) {
             worldBoss.isActive = false;
             
             const sorted = Object.entries(worldBoss.contributors).sort(([,a],[,b]) => b - a).slice(0, 3);
-            let summary = "💀 **BOSS ĐÃ CHẠY THOÁT!** Trận đấu kết thúc trong tiếc nuối.\n\n**🏆 VINH DANH TOP 3 GÂY SÁT THƯƠNG:**\n";
+            let summary = "💀 **BOSS ĐÃ CHẠY THOÁT!** Trận đấu kết thúc.\n\n**🏆 VINH DANH TOP 3 GÂY SÁT THƯƠNG:**\n";
             
             if (sorted.length > 0) {
                 sorted.forEach(([id, dmg], i) => {
@@ -1416,6 +1426,7 @@ if (msg.content.startsWith(":spawnboss")) {
             const failEmbed = new EmbedBuilder()
                 .setTitle("🌑 ĐẤU TRƯỜNG KHÉP LẠI")
                 .setDescription(summary)
+                .setThumbnail(BOSS_IMAGE)
                 .setColor("#7F8C8D");
 
             const channel = client.channels.cache.get(worldBoss.spawnChannel);
@@ -1426,7 +1437,7 @@ if (msg.content.startsWith(":spawnboss")) {
     }, 300000);
 }
 
-// --- 3. XỬ LÝ TƯƠNG TÁC (Trong client.on('interactionCreate')) ---
+// --- 3. XỬ LÝ TƯƠNG TÁC NÚT BẤM ---
 client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
@@ -1436,6 +1447,7 @@ client.on('interactionCreate', async interaction => {
         const u = data[interaction.user.id];
         if (!u || !u.equippedGa) return interaction.reply({ content: "❌ Gà của bạn chưa vào sân! Dùng `:equip` ngay.", ephemeral: true });
 
+        // Tính sát thương dựa trên ATK của gà
         const damage = u.equippedGa.atk || Math.floor(u.equippedGa.hp / 15) || 50;
         const crit = Math.random() < 0.1 ? 2 : 1; 
         const finalDamage = damage * crit;
@@ -1448,7 +1460,6 @@ client.on('interactionCreate', async interaction => {
             ephemeral: true 
         });
 
-        // Khi Boss bị tiêu diệt (Thắng cuộc)
         if (worldBoss.hp <= 0 && worldBoss.isActive) {
             worldBoss.isActive = false;
             
@@ -1475,7 +1486,7 @@ client.on('interactionCreate', async interaction => {
                 .setTitle("🏆 ĐẠI CHIẾN KẾT THÚC")
                 .setDescription(rewardList)
                 .setColor("#F1C40F")
-                .setImage("https://i.imgur.com/vH8lBq9.gif");
+                .setImage(BOSS_IMAGE);
 
             interaction.channel.send({ embeds: [winEmbed] });
             worldBoss = null;
@@ -1494,6 +1505,7 @@ client.on('interactionCreate', async interaction => {
         const statusEmbed = new EmbedBuilder()
             .setAuthor({ name: "BẢNG PHONG THẦN TẠM THỜI" })
             .setDescription(`❤️ **Máu Boss:** \`${worldBoss.hp.toLocaleString()}\` HP\n\n${top3}`)
+            .setThumbnail(BOSS_IMAGE)
             .setColor("#3498db");
 
         return interaction.reply({ embeds: [statusEmbed], ephemeral: true });
