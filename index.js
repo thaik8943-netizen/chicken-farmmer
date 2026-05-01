@@ -23,13 +23,57 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
-// ================= DATABASE & UTILS =================
-const DATA_FILE = './data.json';
-let data = {};
-if (fs.existsSync(DATA_FILE)) { 
-    try { data = JSON.parse(fs.readFileSync(DATA_FILE)); } catch (e) { data = {}; } 
+// ================= DATABASE & MONGO CONNECTION =================
+const { MongoClient } = require('mongodb');
+const uri = process.env.MONGO_URI; // Link Hòa đã dán vào Render
+const clientDB = new MongoClient(uri);
+
+let db, usersCol;
+let data = {}; // Giữ biến data để các hàm cũ không bị lỗi ngay lập tức
+
+async function connectDB() {
+    try {
+        await clientDB.connect();
+        db = clientDB.db("FarmBot");
+        usersCol = db.collection("Players");
+        console.log("✅ Đã kết nối MongoDB!");
+
+        // Tải dữ liệu từ mây về biến local để bot chạy mượt
+        const allUsers = await usersCol.find({}).toArray();
+        allUsers.forEach(u => {
+            data[u._id] = u;
+        });
+
+        // TỰ ĐỘNG DI CƯ: Nếu có file data.json thì đẩy lên mây
+        if (fs.existsSync(DATA_FILE)) {
+            const fileData = JSON.parse(fs.readFileSync(DATA_FILE));
+            for (const [id, value] of Object.entries(fileData)) {
+                if (!data[id]) { // Nếu trên mây chưa có thì mới đẩy lên
+                    await usersCol.updateOne(
+                        { _id: id },
+                        { $set: value },
+                        { upsert: true }
+                    );
+                    data[id] = value;
+                }
+            }
+            console.log("🚀 Đã di cư dữ liệu từ JSON lên MongoDB thành công!");
+        }
+    } catch (e) {
+        console.error("❌ Lỗi DB:", e);
+    }
 }
-function saveData() { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+connectDB();
+
+// Thay thế hàm saveData cũ thành hàm lưu lên mây
+async function saveData(userId) {
+    if (!userId) return; 
+    await usersCol.updateOne(
+        { _id: userId },
+        { $set: data[userId] },
+        { upsert: true }
+    );
+}
 
 function getUser(id) {
     if (!data[id]) {
@@ -41,7 +85,6 @@ function getUser(id) {
     }
     return data[id];
 }
-
 // ================= CƠ SỞ DỮ LIỆU GÀ =================
 const PREFIX = ["Thần", "Thánh", "Cổ", "Vương", "Đế", "Huyền", "Linh", "Ma", "Quỷ", "Phật", "Tiên", "Thú", "Chiến", "Sát", "Hộ", "Pháp", "Long", "Phượng", "Kỳ", "Lân", "Hỏa", "Băng", "Lôi", "Phong", "Thổ"];
 const MID = ["Ánh_Sáng", "Bóng_Tối", "Hỏa_Ngục", "Băng_Giá", "Sấm_Sét", "Cuồng_Phong", "Kim_Cương", "Vàng_Ròng", "Đá_Quý", "Vô_Cực", "Hư_Không", "Tử_Vong", "Sự_Sống", "Hỗn_Mang", "Thanh_Khiết", "Tàn_Bạo", "Dũng_Mãnh", "Nhanh_Nhẹn", "Trường_Sinh", "Bất_Diệt"];
