@@ -901,30 +901,50 @@ if (msg.content === ":daily") {
     
     return msg.reply("🌾 **Chúc mừng!** Bạn đã nhận được **500 Thóc** cho ngày hôm nay.");
 }
-// --- LỆNH: KHÓA/MỞ KHÓA GÀ ---
+// --- LỆNH: KHÓA/MỞ KHÓA GÀ (HỆ HOẶC TÊN 80%) ---
+
 if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
     const isLock = msg.content.startsWith(":lockga");
     const args = msg.content.split(" ");
-    const rarityStr = args[1]?.toLowerCase();
-    const validRarities = ["common", "rare", "epic", "legendary"];
-
-    if (!rarityStr || !validRarities.includes(rarityStr)) {
-        return msg.reply("❌ Cú pháp: `:lockga <common/rare/epic/legendary>` hoặc `:unlockga <hệ>`");
+    const rawInput = args.slice(1).join(" "); // Lấy toàn bộ phần phía sau lệnh
+    
+    if (!rawInput) {
+        return msg.reply(`❌ Cú pháp: \`:${isLock ? "lockga" : "unlockga"} <hệ hoặc tên gà>\``);
     }
+
+    const inputClean = cleanText(rawInput); // Sử dụng hàm cleanText đã viết ở lệnh sell
+    const validRarities = ["common", "rare", "epic", "legendary"];
 
     let count = 0;
     u.gaCon.forEach(g => {
-        // Kiểm tra xem độ hiếm của con gà có chứa từ khóa (vd: "Legendary 🟡") hay không
-        if (g.rarity.toLowerCase().includes(rarityStr)) {
+        const rarityClean = cleanText(g.rarity);
+        const nameClean = cleanText(g.name);
+
+        let isMatch = false;
+
+        // 1. Kiểm tra nếu khớp hệ chính xác
+        if (validRarities.includes(inputClean) && rarityClean === inputClean) {
+            isMatch = true;
+        } 
+        // 2. Kiểm tra độ giống nhau của tên (> 80%)
+        else if (similarity(nameClean, inputClean) >= 0.8) { // Sử dụng hàm similarity đã viết
+            isMatch = true;
+        }
+
+        if (isMatch) {
             g.locked = isLock;
             count++;
         }
     });
 
-    if (count === 0) return msg.reply(`❌ Bạn không có con gà nào thuộc hệ **${rarityStr}**.`);
+    if (count === 0) {
+        return msg.reply(`❌ Không tìm thấy gà nào giống với "**${rawInput}**" để thực hiện.`);
+    }
 
     saveData(msg.author.id);
-    return msg.reply(`${isLock ? "🔒 Đã khóa" : "🔓 Đã mở khóa"} thành công **${count}** con gà hệ **${rarityStr}**. Những con gà này sẽ không bị bán bởi lệnh \`:sellga\`.`);
+    
+    const actionMsg = isLock ? "🔒 Đã khóa" : "🔓 Đã mở khóa";
+    return msg.reply(`${actionMsg} thành công **${count}** con gà khớp với "**${rawInput}**".\n⚠️ Trạng thái này sẽ ảnh hưởng đến việc bán gà bằng lệnh \`:sellga\`.`);
 }
 // --- LỆNH: SKIP 45 PHÚT ẤP TRỨNG (:skipaptrung) ---
 if (msg.content === ":skipaptrung") {
