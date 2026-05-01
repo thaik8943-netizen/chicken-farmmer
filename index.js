@@ -73,14 +73,6 @@ for (let p of PREFIX) {
 }
 
 // ... (Tiếp tục các hàm formatTime, getHint và sự kiện messageCreate bên dưới)
-// ================= DATABASE & UTILS =================
-const DATA_FILE = './data.json';
-let data = {};
-if (fs.existsSync(DATA_FILE)) { 
-    try { data = JSON.parse(fs.readFileSync(DATA_FILE)); } catch (e) { data = {}; } 
-}
-function saveData() { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
-
 function getUser(id) {
     if (!data[id]) {
         data[id] = {
