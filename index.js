@@ -840,10 +840,27 @@ if (msg.content.startsWith(":sellga")) {
     return msg.reply(response);
 }
 if (msg.content === ":daily") {
-if (now - u.lastDaily < 7200000) return msg.reply("⏳ Chờ 2h!");
-u.thoc += 500; u.lastDaily = now; saveData(msg.author.id); msg.reply("🌾 +500 Thóc!");
-}
+    const u = data[msg.author.id];
+    const now = Date.now();
+    const cooldown = 7200000; // 2 giờ tính bằng milliseconds
 
+    if (now - u.lastDaily < cooldown) {
+        const timeLeft = cooldown - (now - u.lastDaily); // Thời gian còn lại tính bằng ms
+        
+        // Chuyển đổi ms sang phút và giây
+        const minutes = Math.floor(timeLeft / 60000);
+        const seconds = Math.floor((timeLeft % 60000) / 1000);
+        
+        return msg.reply(`⏳ Bạn đã điểm danh rồi! Hãy quay lại sau **${minutes} phút ${seconds} giây** nữa.`);
+    }
+
+    // Nếu đã hết thời gian chờ
+    u.thoc = (u.thoc || 0) + 500; 
+    u.lastDaily = now; 
+    saveData(); // Lưu lại dữ liệu toàn cục
+    
+    return msg.reply("🌾 **Chúc mừng!** Bạn đã nhận được **500 Thóc** cho ngày hôm nay.");
+}
 // --- LỆNH: KHÓA/MỞ KHÓA GÀ ---
 if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
     const isLock = msg.content.startsWith(":lockga");
