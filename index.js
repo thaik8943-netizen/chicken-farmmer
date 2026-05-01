@@ -194,7 +194,6 @@ async function updateTopRoles(guild) {
 // ================= BOT COMMANDS =================
 client.on("messageCreate", async (msg) => {
     if (msg.author.bot || !msg.content.startsWith(":")) return;
-    
     const u = getUser(msg.author.id);
     const now = Date.now();
     const today = new Date().setHours(0, 0, 0, 0);
@@ -649,7 +648,7 @@ if (msg.content.startsWith(":use")) {
             msg.reply(`🌾 Bạn nhận được **${nhan} Thóc**!`);
         } else {
             const nhan = Math.floor(Math.random() * 25001) + 5000;
-            u.money += nhan;
+            u.coins += nhan;
             msg.reply(`💰 Bạn nhận được **${nhan.toLocaleString()} Xu**!`);
         }
         await saveData(msg.author.id);
@@ -668,7 +667,7 @@ if (msg.content === ":khodo") {
             { name: "🎟️ Vé", value: `${u.inventory.ve_restart || 0}`, inline: true },
             { name: "🥚 Trứng God", value: `${u.inventory.trung_god || 0}`, inline: true },
             { name: "🎁 Hộp Bí Ẩn", value: `${u.inventory.hop_bi_an || 0}`, inline: true },
-            { name: "💰 Số dư Xu", value: `**${u.money.toLocaleString()} Xu**`, inline: false }
+            { name: "💰 Số dư Xu", value: `**${u.coins.toLocaleString()} Xu**`, inline: false }
         )
         .setFooter({ text: "Dùng: :use <tên_vật_phẩm>" });
 
