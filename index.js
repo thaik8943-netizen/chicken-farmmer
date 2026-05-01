@@ -201,64 +201,92 @@ client.on("messageCreate", async (msg) => {
         u.lastEatReset = today; 
     }
 
-    // --- LOGIC TỰ ĐỘNG NỞ TRỨNG ---
-    if (u.dangAp && u.dangAp.length > 0) {
-        let no = [];
-        u.dangAp = u.dangAp.filter(e => {
-            if (now >= e.finishAt) {
-                for (let i = 0; i < e.amount; i++) {
-                    let r = Math.random() * 100;
-                    let selectedRarity = "Common ⚪";
+    // --- LOGIC TỰ ĐỘNG NỞ TRỨNG (PHÂN CẤP TỈ LỆ & DECOR VIP) ---
+if (u.dangAp && u.dangAp.length > 0) {
+    let no = [];
+    u.dangAp = u.dangAp.filter(e => {
+        if (now >= e.finishAt) {
+            for (let i = 0; i < e.amount; i++) {
+                let r = Math.random() * 100;
+                let selectedRarity = "Common ⚪";
 
-                    if (e.type === "vang") {
-                        if (r < 0.01) selectedRarity = "Legendary 🟡";
-                        else if (r < 1.01) selectedRarity = "Epic 🟣";
-                        else if (r < 16) selectedRarity = "Rare 🔵";
-                    } else if (e.type === "bac") {
-                        if (r < 0.001) selectedRarity = "Legendary 🟡";
-                        else if (r < 0.1) selectedRarity = "Epic 🟣";
-                        else if (r < 8) selectedRarity = "Rare 🔵";
-                    } else {
-                        if (r < 1) selectedRarity = "Rare 🔵";
-                    }
-
-                    const pureRarity = selectedRarity.split(' ')[0];
-                    let pool = GA_LIST.filter(g => g.rarity.includes(pureRarity));
-                    if (pool.length === 0) pool = GA_LIST.filter(g => g.rarity.includes("Common"));
-                    let g = pool[Math.floor(Math.random() * pool.length)];
-
-                    const stats = {
-                        "Common ⚪": { hp: [50, 100], price: [10, 30] },
-                        "Rare 🔵":   { hp: [200, 400], price: [200, 500] },
-                        "Epic 🟣":   { hp: [1000, 2000], price: [5000, 15000] },
-                        "Legendary 🟡": { hp: [8000, 15000], price: [100000, 300000] } 
-                    };
-
-                    const s = stats[selectedRarity];
-                    u.gaCon.push({ 
-                        ...g, 
-                        id: Date.now() + Math.random(), 
-                        locked: false,
-                        rarity: selectedRarity,
-                        hp: Math.floor(Math.random() * (s.hp[1] - s.hp[0] + 1)) + s.hp[0],
-                        price: Math.floor(Math.random() * (s.price[1] - s.price[0] + 1)) + s.price[0]
-                    });
-                    no.push(selectedRarity);
+                // 1. Phân cấp tỉ lệ theo loại trứng
+                if (e.type === "vang") {
+                    if (r < 0.01) selectedRarity = "Legendary 🟡"; // 0.01% - Siêu hiếm
+                    else if (r < 1.01) selectedRarity = "Epic 🟣"; // 1%
+                    else if (r < 16) selectedRarity = "Rare 🔵";   // 15%
+                } else if (e.type === "bac") {
+                    if (r < 0.001) selectedRarity = "Legendary 🟡"; // 0.001% - Cực khó
+                    else if (r < 0.1) selectedRarity = "Epic 🟣";   // 0.1%
+                    else if (r < 8) selectedRarity = "Rare 🔵";     // ~8%
+                } else {
+                    // Trứng thường chủ yếu là Common, Rare cực ít
+                    if (r < 1) selectedRarity = "Rare 🔵"; 
                 }
-                return false;
-            } return true;
-        });
 
-        if (no.length > 0) {
-            saveData(msg.author.id);
-            let congrats = `🐣 **KẾT QUẢ ẤP TRỨNG:**\n${no.map(n => `> ✨ Bạn đã nhận được 1 gà **${n}**`).join("\n")}`;
-            if (no.some(n => n.includes("Legendary"))) {
-                congrats = `🌟 **HUYỀN THOẠI XUẤT HIỆN!** 🌟\nChúc mừng <@${msg.author.id}> đã sở hữu được gà **Legendary 🟡** cực hiếm!!!`;
+                const pureRarity = selectedRarity.split(' ')[0];
+                let pool = GA_LIST.filter(g => g.rarity.includes(pureRarity));
+                if (pool.length === 0) pool = GA_LIST.filter(g => g.rarity.includes("Common"));
+                let g = pool[Math.floor(Math.random() * pool.length)];
+
+                const stats = {
+                    "Common ⚪": { hp: [50, 100], price: [10, 30], color: "#95a5a6" },
+                    "Rare 🔵":   { hp: [200, 400], price: [200, 500], color: "#3498db" },
+                    "Epic 🟣":   { hp: [1000, 2000], price: [5000, 15000], color: "#9b59b6" },
+                    "Legendary 🟡": { hp: [8000, 15000], price: [100000, 300000], color: "#f1c40f" } 
+                };
+
+                const s = stats[selectedRarity];
+                const newGa = { 
+                    ...g, 
+                    id: Date.now() + Math.random(), 
+                    locked: false,
+                    rarity: selectedRarity,
+                    hp: Math.floor(Math.random() * (s.hp[1] - s.hp[0] + 1)) + s.hp[0],
+                    price: Math.floor(Math.random() * (s.price[1] - s.price[0] + 1)) + s.price[0]
+                };
+                u.gaCon.push(newGa);
+                no.push(newGa);
             }
-            msg.reply(congrats);
-        }
-    }
+            return false;
+        } return true;
+    });
 
+    if (no.length > 0) {
+        saveData(msg.author.id);
+
+        const hasLegendary = no.some(g => g.rarity.includes("Legendary"));
+        const hasEpic = no.some(g => g.rarity.includes("Epic"));
+
+        const embed = new EmbedBuilder()
+            .setTimestamp();
+
+        // 2. Thiết kế Decor theo độ hiếm
+        if (hasLegendary) {
+            embed.setTitle("✨ NGUYÊN TỬ LỰC: HUYỀN THOẠI GIÁNG TRẦN! ✨")
+                 .setColor("#f1c40f")
+                 .setThumbnail("https://i.imgur.com/8E9p6fS.gif") // GIF rực rỡ cho Leg
+                 .setDescription(`🎊 Chúc mừng bạn đã phá vỡ mọi giới hạn!\n\n` + 
+                    no.map(g => `**${g.name}** \`${g.rarity}\`\n└ ❤️ HP: \`${g.hp}\` | 💰 Giá: \`${g.price.toLocaleString()}\``).join("\n\n"));
+            
+            return msg.reply({ content: `🌟 **THÔNG BÁO CHẤN ĐỘNG!** <@${msg.author.id}>`, embeds: [embed] });
+        } 
+        
+        if (hasEpic) {
+            embed.setTitle("🟣 SIÊU CẤP XUẤT HIỆN!")
+                 .setColor("#9b59b6")
+                 .setDescription(no.map(g => `**${g.name}** \`${g.rarity}\`\n└ ❤️ HP: \`${g.hp}\` | 💰 Giá: \`${g.price.toLocaleString()}\``).join("\n\n"));
+            return msg.reply({ embeds: [embed] });
+        }
+
+        // Mặc định cho Common/Rare
+        embed.setTitle("🐣 KẾT QUẢ ẤP TRỨNG")
+             .setColor("#2ecc71")
+             .setDescription(no.map(g => `**${g.name}** \`${g.rarity}\`\n└ ❤️ HP: \`${g.hp}\``).join("\n\n"));
+        
+        return msg.reply({ embeds: [embed] });
+    }
+}
     // --- LỆNH: :start ---
     if (msg.content === ":start") {
         if (u.started) return msg.reply("🌾 Bạn đã có trang trại rồi!");
@@ -1136,10 +1164,11 @@ if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
     return msg.reply(`${actionMsg} thành công **${count}** con gà khớp với "**${rawInput}**".\n⚠️ Trạng thái này sẽ ảnh hưởng đến việc bán gà bằng lệnh \`:sellga\`.`);
 }
 // --- LỆNH: SKIP 45 PHÚT ẤP TRỨNG (:skipaptrung) ---
+// --- LỆNH: SKIP ẤP TRỨNG HOÀN CHỈNH ---
 if (msg.content === ":skipaptrung") {
     const cdSkip = 2 * 60 * 60 * 1000; // Cooldown 2 tiếng
-    const skipAmount = 45 * 60 * 1000; // Thời gian skip: 45 phút
-    const skipCost = 500;
+    const skipAmount = 45 * 60 * 1000; // Giảm 45 phút
+    const skipCost = 2000; // Giá mới 2,000 Xu
     const now = Date.now();
 
     // 1. Kiểm tra Cooldown lệnh
@@ -1155,26 +1184,52 @@ if (msg.content === ":skipaptrung") {
 
     // 3. Kiểm tra tiền
     if (u.coins < skipCost) {
-        return msg.reply(`❌ Bạn cần **${skipCost} Xu** để mua bình tăng tốc 45 phút!`);
+        return msg.reply(`❌ Bạn cần **${skipCost.toLocaleString()} Xu** để mua bình tăng tốc!`);
     }
 
     // 4. Thực hiện giảm thời gian
     u.coins -= skipCost;
     u.lastSkip = now;
 
-    // Trừ 45 phút cho tất cả các đợt đang có trong máy ấp (nếu bạn cho phép ấp nhiều đợt)
-    // Hoặc chỉ đợt đầu tiên tùy theo cấu trúc code của bạn. 
-    // Ở đây mình trừ cho toàn bộ danh sách đang ấp hiện tại:
     u.dangAp.forEach(trung => {
         trung.finishAt -= skipAmount;
     });
 
-    saveData(msg.author.id);
+    await saveData(msg.author.id);
 
-    // Kiểm tra xem sau khi trừ có đợt nào nở luôn không
-    const willHatch = u.dangAp.some(trung => now >= trung.finishAt);
+    // 5. Kiểm tra trứng nở ngay lập tức
+    const hatchedEggs = u.dangAp.filter(trung => now >= trung.finishAt);
 
-    return msg.reply(`⏩ **TĂNG TỐC THÀNH CÔNG!**\n💰 Chi phí: **${skipCost} Xu**\n⏱️ Đã giảm **45 phút** thời gian chờ cho các trứng đang ấp.\n${willHatch ? "🐣 Một số trứng đã đủ thời gian, hãy nhắn tin tiếp theo để nhận gà!" : "⏳ Trứng vẫn cần thêm thời gian để nở."}`);
+    // 6. Tạo bảng hiển thị thời gian còn lại (Embed chính)
+    const timeRemainingList = u.dangAp.map((trung, i) => {
+        const timeLeft = trung.finishAt - now;
+        const status = timeLeft <= 0 ? "✅ **SẴN SÀNG NỞ!**" : `⏳ Còn: \`${formatTime(timeLeft)}\``;
+        return `**${i + 1}. Trứng ${trung.type.toUpperCase()}:** ${status}`;
+    }).join("\n");
+
+    const mainEmbed = new EmbedBuilder()
+        .setTitle("⏩ TĂNG TỐC ẤP TRỨNG")
+        .setDescription(`💰 Chi phí: **${skipCost.toLocaleString()} Xu**\n⏱️ Đã giảm **45 phút** cho tất cả trứng.\n\n**Tình trạng máy ấp:**\n${timeRemainingList}`)
+        .setColor("#3498DB")
+        .setTimestamp();
+
+    await msg.reply({ embeds: [mainEmbed] });
+
+    // 7. Nếu có trứng nở ngay -> Gửi thêm Embed Decor rực rỡ
+    if (hatchedEggs.length > 0) {
+        const hatchEmbed = new EmbedBuilder()
+            .setTitle("🐣 TIN VUI: TRỨNG ĐÃ NỞ!")
+            .setDescription(
+                `✨ **Phép màu đã xuất hiện!** ✨\n\n` +
+                `Sức mạnh từ bình tăng tốc đã giúp **${hatchedEggs.length}** quả trứng nứt vỏ ngay lập tức!\n\n` +
+                `👉 Hãy nhắn tin bất kỳ hoặc gõ \`:chuonga\` để đón thành viên mới!`
+            )
+            .setColor("#FFD700") // Màu vàng kim rực rỡ
+            .setThumbnail("https://i.imgur.com/8E9p6fS.gif") // Link ảnh minh họa
+            .addFields({ name: "📦 Trạng thái", value: "Sẵn sàng nhận gà", inline: true });
+
+        return msg.channel.send({ embeds: [hatchEmbed] });
+    }
 }
 // --- LỆNH: XEM CHUỒNG GÀ (PHÂN TRANG & HIỂN THỊ CHỈ SỐ) ---
 if (msg.content === ":chuonga") {
