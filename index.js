@@ -1597,7 +1597,7 @@ if (msg.content === ":help") {
                 break;
             case 'steal':
                 title = "🕵️ HOẠT ĐỘNG NGẦM";
-                desc = ">>> 🥷 `:steal`: Đi ăn trộm thóc hàng xóm.\n⚠️ Cẩn thận kẻo bị phạt tiền!";
+                desc = ">>> 🥷 `:tromga @user`: Đi ăn trộm thóc hàng xóm.\n⚠️ Cẩn thận kẻo bị phạt tiền!";
                 color = "#34495E";
                 break;
             default:
