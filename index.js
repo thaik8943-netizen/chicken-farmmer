@@ -1693,7 +1693,9 @@ if (msg.content === ":thuhoach") {
     return msg.reply(`🌾 **Thu hoạch thành công!**\n📦 Nhận được: **${thuHoach.toLocaleString()} thóc**\n📈 Lợi nhuận vụ này: **+${loiNhuan.toLocaleString()} thóc**.`);
 }
 // --- LỆNH: TRỒNG LÚA (DỰA TRÊN GIỚI HẠN RUỘNG) ---
+// --- LỆNH: TRỒNG LÚA (DỰA TRÊN GIỚI HẠN RUỘNG) ---
 if (msg.content === ":tronglua") {
+    const u = getUser(msg.author.id); // <--- THÊM DÒNG NÀY ĐỂ HẾT LỖI
     const requiredLv = 4;
     if ((u.lvGa || 0) < requiredLv) return msg.reply("❌ Cần :upga Lv.4 để bắt đầu canh tác!");
 
@@ -1701,30 +1703,26 @@ if (msg.content === ":tronglua") {
         return msg.reply("🌾 Ruộng đang có lúa rồi! Hãy đợi chín và gõ `:thuhoach`.");
     }
 
-    // Giới hạn sản lượng tối đa của ruộng hiện tại
     const maxRuong = 500 + ((u.lvNo || 0) * 200);
-    
-    // Thóc giống cần bỏ ra ngẫu nhiên (Ví dụ: 10% - 20% giới hạn ruộng)
     const minGiong = Math.floor(maxRuong * 0.1);
     const maxGiong = Math.floor(maxRuong * 0.2);
     const thocGiong = Math.floor(Math.random() * (maxGiong - minGiong + 1)) + minGiong;
 
     if (u.thoc < thocGiong) {
-        return msg.reply(`❌ Bạn không đủ thóc giống! Vụ này cần **${thocGiong} thóc** (Dựa trên quy mô ruộng của bạn).`);
+        return msg.reply(`❌ Bạn không đủ thóc giống! Vụ này cần **${thocGiong} thóc**.`);
     }
 
-    // Trừ thóc giống và bắt đầu trồng
     u.thoc -= thocGiong;
     u.lastTrong = Date.now();
     u.isTrongLua = true;
-    u.thocGiongDaDung = thocGiong; // Lưu lại để tính lời
+    u.thocGiongDaDung = thocGiong; 
     
     saveData(msg.author.id);
-
-    return msg.reply(`🌱 Bạn đã gieo **${thocGiong} thóc giống** vào ruộng (Quy mô: ${maxRuong}).\n⏳ Chờ 30 phút nữa để lúa chín nhé!`);
+    return msg.reply(`🌱 Bạn đã gieo **${thocGiong} thóc giống**. ⏳ Chờ 30 phút để lúa chín!`);
 }
 // --- HỆ THỐNG MENU HELP (CẬP NHẬT) ---
 if (msg.content === ":help") {
+    const u = getUser(msg.author.id);
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('help_menu')
         .setPlaceholder('📂 Chọn danh mục bạn muốn xem...')
@@ -1803,17 +1801,30 @@ if (msg.content === ":help") {
     });
 }
 }); 
-function getSimilarity(str1, str2) {
-    const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    if (s1 === s2) return 1.0;
-    const bigrams1 = new Set();
-    for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
-    const bigrams2 = new Set();
-    for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
-    let intersect = 0;
-    for (let b of bigrams1) { if (bigrams2.has(b)) intersect++; }
-    return (2.0 * intersect) / (bigrams1.size + bigrams2.size);
+// Dán đoạn này vào cuối file, dưới tất cả các lệnh khác
+function getSimilarity(s1, s2) {
+    let longer = s1.toLowerCase();
+    let shorter = s2.toLowerCase();
+    if (s1.length < s2.length) {
+        longer = s2;
+        shorter = s1;
+    }
+    let longerLength = longer.length;
+    if (longerLength === 0) return 1.0;
+    return (longerLength - editDistance(longer, shorter)) / parseFloat(longerLength);
 }
+
+function editDistance(s1, s2) {
+    s1 = s1.toLowerCase();
+    s2 = s2.toLowerCase();
+    let costs = new Array();
+    for (let i = 0; i <= s1.length; i++) {
+        let lastValue = i;
+        for (let j = 0; j <= s2.length; j++) {
+            if (i == 0) costs[j] = j;
+            else {
+                if (j > 0) {
+                    let newValue = costs[j - 1];
+                    if (s1.charAt(i - 1) != sNormally I can help with things like this, but I don't seem to have access to that content. You can try again or ask me for something else.
 
 client.login(process.env.TOKEN);
