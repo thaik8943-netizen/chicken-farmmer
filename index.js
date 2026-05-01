@@ -27,6 +27,21 @@ const PREFIX = ["Thần", "Thánh", "Cổ", "Vương", "Đế", "Huyền", "Linh
 const MID = ["Ánh_Sáng", "Bóng_Tối", "Hỏa_Ngục", "Băng_Giá", "Sấm_Sét", "Cuồng_Phong", "Kim_Cương", "Vàng_Ròng", "Đá_Quý", "Vô_Cực", "Hư_Không", "Tử_Vong", "Sự_Sống", "Hỗn_Mang", "Thanh_Khiết", "Tàn_Bạo", "Dũng_Mãnh", "Nhanh_Nhẹn", "Trường_Sinh", "Bất_Diệt"];
 const SUFFIX = ["Kê", "Gà", "Điểu", "Quái", "Thần", "Tướng", "Sĩ", "Binh", "Chủ", "Hậu", "Hoàng", "Vương", "Lão", "Phu", "Sư", "Tổ", "Tộc", "Long", "Lân", "Quy"];
 
+function getSimilarity(str1, str2) {
+    // ... (Hàm giữ nguyên như cũ)
+    const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
+    const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
+    if (s1 === s2) return 1.0;
+    if (s1.length < 2 || s2.length < 2) return 0;
+    const bigrams1 = new Set();
+    for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
+    const bigrams2 = new Set();
+    for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
+    let intersect = 0;
+    for (let b of bigrams1) { if (bigrams2.has(b)) intersect++; }
+    return (2.0 * intersect) / (bigrams1.size + bigrams2.size);
+}
+
 function getChickenPrice(rarity) {
     const r = rarity.toLowerCase();
     if (r.includes("legendary")) return Math.floor(Math.random() * (300 - 200 + 1)) + 200;
@@ -1237,20 +1252,5 @@ if (msg.content === ":help") {
 } 
 
 }); // ĐÓNG SỰ KIỆN messageCreate
-
-function getSimilarity(str1, str2) {
-    // ... (Hàm giữ nguyên như cũ)
-    const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    if (s1 === s2) return 1.0;
-    if (s1.length < 2 || s2.length < 2) return 0;
-    const bigrams1 = new Set();
-    for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
-    const bigrams2 = new Set();
-    for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
-    let intersect = 0;
-    for (let b of bigrams1) { if (bigrams2.has(b)) intersect++; }
-    return (2.0 * intersect) / (bigrams1.size + bigrams2.size);
-}
 
 client.login(process.env.TOKEN);
