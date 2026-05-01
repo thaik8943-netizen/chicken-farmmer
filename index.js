@@ -1242,9 +1242,7 @@ if (msg.content === ":help") {
         response.edit({ components: [] }).catch(() => {});
     });
 } // Đóng lệnh help
-
-}); // <--- CHỈ CÓ MỘT DẤU NÀY ĐỂ ĐÓNG client.on('messageCreate')
-// HÀM TIỆN ÍCH (Đặt ngoài messageCreate)
+ // HÀM TIỆN ÍCH (Đặt ngoài messageCreate)
 function getSimilarity(str1, str2) {
     const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
     const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
