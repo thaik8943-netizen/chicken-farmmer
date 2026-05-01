@@ -6,9 +6,15 @@ http.createServer((req, res) => {
 
 require('dotenv').config();
 const { 
-    Client, GatewayIntentBits, Partials, EmbedBuilder, 
-    ActionRowBuilder, StringSelectMenuBuilder, ButtonBuilder, 
-    ButtonStyle, ComponentType 
+    Client, 
+    GatewayIntentBits, 
+    Partials, 
+    EmbedBuilder, 
+    ActionRowBuilder, 
+    StringSelectMenuBuilder,  
+    ButtonBuilder, 
+    ButtonStyle,
+    ComponentType,
 } = require('discord.js');
 const fs = require('fs');
 
@@ -55,7 +61,6 @@ for (let p of PREFIX) {
         }
     }
 }
-// (Tiếp tục dán Phần 2 ngay dưới đây...)
 // ================= HÀM TIỆN ÍCH =================
 function formatTime(ms) {
     if (ms <= 0) return "Xong!";
@@ -63,17 +68,18 @@ function formatTime(ms) {
     return `${h > 0 ? h + 'h ' : ''}${m}p ${s}s`;
 }
 
-function getSimilarity(str1, str2) {
-    const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
-    if (s1 === s2) return 1.0;
-    const bigrams1 = new Set();
-    for (let i = 0; i < s1.length - 1; i++) bigrams1.add(s1.substring(i, i + 2));
-    const bigrams2 = new Set();
-    for (let i = 0; i < s2.length - 1; i++) bigrams2.add(s2.substring(i, i + 2));
-    let intersect = 0;
-    for (let b of bigrams1) { if (bigrams2.has(b)) intersect++; }
-    return (2.0 * intersect) / (bigrams1.size + bigrams2.size);
+async function updateTopRoles(guild) {
+    const TOP_ROLES = { 1: "Trùm Cuối Kê Gia", 2: "Đại Gia Chăn Gà", 3: "Phú Hộ Trại Gà" };
+    const sorted = Object.entries(data).filter(([id, u]) => u.started).sort(([, a], [, b]) => b.coins - a.coins).slice(0, 3);
+    for (let i = 0; i < 3; i++) {
+        const entry = sorted[i]; if (!entry) continue;
+        const role = guild.roles.cache.find(r => r.name === TOP_ROLES[i + 1]);
+        if (!role) continue;
+        try {
+            const member = await guild.members.fetch(entry[0]);
+            if (member) await member.roles.add(role);
+        } catch (e) {}
+    }
 }
 
 // ================= BOT COMMANDS =================
@@ -84,8 +90,10 @@ client.on("messageCreate", async (msg) => {
     const now = Date.now();
     const today = new Date().setHours(0, 0, 0, 0);
 
-    if (u.lastEatReset !== today) { u.eatToday = 0; u.lastEatReset = today; }
-    });
+    if (u.lastEatReset !== today) { 
+        u.eatToday = 0; 
+        u.lastEatReset = today; 
+    }
 
     // --- LOGIC TỰ ĐỘNG NỞ TRỨNG ---
     if (u.dangAp && u.dangAp.length > 0) {
@@ -147,49 +155,45 @@ client.on("messageCreate", async (msg) => {
 
     // --- LỆNH: :start ---
     if (msg.content === ":start") {
-        if (u.started) return msg.reply("🌾 Bạn đã có trang trại!");
+        if (u.started) return msg.reply("🌾 Bạn đã có trang trại rồi!");
         u.started = true;
+        u.coins = 500;
+        u.thoc = 1000;
+        u.gaCon.push({ ...GA_LIST[0], id: Date.now(), locked: false, hp: 50, price: 10 });
         saveData();
-        return msg.reply("🎉 Khởi tạo thành công! Gõ `:daily` nhận thóc.");
+        return msg.reply("🎉 **CHÚC MỪNG!** Bạn đã nhận được mảnh đất đầu tiên và **1 con gà mặc định**.\n👉 Gõ `:thongtin` để xem trang trại hoặc `:chogaan` để bắt đầu kiếm trứng nhé!");
     }
 // --- ADMIN GIVE (Bản Nâng Cấp: Xu, Thóc, Trứng, Gà) ---
 if (msg.content.startsWith(":give")) {
-    // 1. Kiểm tra quyền Admin
     if (msg.author.id !== "873867371419422742") return msg.reply("❌ Quyền lực này không thuộc về bạn!");
 
     const args = msg.content.split(" ");
     const target = msg.mentions.users.first();
-    const type = args[2]?.toLowerCase(); // xu, thoc, thuong, bac, vang, legendary, v.v.
+    const type = args[2]?.toLowerCase();
     const amt = parseInt(args[3]);
 
     if (!target || !type || isNaN(amt) || amt <= 0) {
         return msg.reply("❌ Cú pháp: `:give @user <loại> <số lượng>`\n💡 Loại: `xu`, `thoc`, `thuong`, `bac`, `vang` hoặc `tên_độ_hiếm_gà` (ví dụ: `legendary`)");
     }
 
-    const r = data[target.id]; // Đảm bảo bạn dùng biến 'r' tham chiếu tới data của target
+    const r = data[target.id];
     if (!r) return msg.reply("❌ Người này chưa khởi tạo trang trại!");
 
-    // 2. Xử lý tặng Xu và Thóc
     if (type === "xu") {
         r.coins = (r.coins || 0) + amt;
     } else if (type === "thoc") {
         r.thoc = (r.thoc || 0) + amt;
-    } 
-    // 3. Xử lý tặng Trứng (thuong, bac, vang)
-    else if (["thuong", "bac", "vang"].includes(type)) {
+    } else if (["thuong", "bac", "vang"].includes(type)) {
         r.trung[type] = (r.trung[type] || 0) + amt;
-    } 
-    // 4. Xử lý tặng Gà (Theo độ hiếm)
-    else {
-        // Giả sử các giá trị type khác là tên độ hiếm (Common, Rare, Epic, Legendary...)
+    } else {
         for (let i = 0; i < amt; i++) {
             const newGa = {
-                id: Date.now() + i, // Tạo ID duy nhất
+                id: Date.now() + i,
                 name: `Gà ${type.toUpperCase()}`,
-                rarity: type.charAt(0).toUpperCase() + type.slice(1), // Viết hoa chữ cái đầu
+                rarity: type.charAt(0).toUpperCase() + type.slice(1),
                 hp: 100,
                 atk: 20,
-                price: 500, // Giá trị mặc định hoặc tùy chỉnh theo độ hiếm
+                price: 500,
                 locked: false
             };
             r.gaCon.push(newGa);
@@ -199,28 +203,19 @@ if (msg.content.startsWith(":give")) {
     saveData(); 
     return msg.reply(`🎁 Đã tặng **${amt} ${type}** cho <@${target.id}> thành công!`);
 }
+
 // --- LỆNH: NÂNG CẤP ĐỒNG BỘ GIÁ LŨY TIẾN ---
 if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":upaptrung") {
     let typeName = "";
     let key = "";
     
-    if (msg.content === ":upga") { 
-        typeName = "Tỉ lệ trứng hiếm"; 
-        key = "lvGa"; 
-    }
-    else if (msg.content === ":upthoc") { 
-        typeName = "Kho thóc"; 
-        key = "lvNo"; 
-    }
-    else { 
-        typeName = "Máy ấp trứng"; 
-        key = "lvAp"; 
-    }
+    if (msg.content === ":upga") { typeName = "Tỉ lệ trứng hiếm"; key = "lvGa"; }
+    else if (msg.content === ":upthoc") { typeName = "Kho thóc"; key = "lvNo"; }
+    else { typeName = "Máy ấp trứng"; key = "lvAp"; }
 
     let currentLv = u[key] || 0;
     if (currentLv >= 10) return msg.reply(`✨ **${typeName}** đã đạt cấp tối đa (Lv.10)!`);
 
-    // CÔNG THỨC ĐỒNG BỘ: (Level hiện tại + 1)^2 * 2000
     let cost = Math.pow(currentLv + 1, 2) * 2000; 
 
     if (u.coins < cost) {
@@ -242,7 +237,6 @@ if (msg.content.startsWith(":trade")) {
     const u2 = data[target.id];
     if (!u2 || !u2.started) return msg.reply("❌ Đối phương chưa bắt đầu chơi!");
 
-    // Dữ liệu cuộc giao dịch
     let tradeData = {
         [msg.author.id]: { items: [], coins: 0, thoc: 0, confirmed: false },
         [target.id]: { items: [], coins: 0, thoc: 0, confirmed: false }
@@ -274,7 +268,7 @@ if (msg.content.startsWith(":trade")) {
     );
 
     const tradeMsg = await msg.reply({ embeds: [generateEmbed()], components: [mainRow] });
-    const collector = tradeMsg.createMessageComponentCollector({ time: 300000 }); // 5 phút
+    const collector = tradeMsg.createMessageComponentCollector({ time: 300000 });
 
     collector.on('collect', async i => {
         if (i.user.id !== msg.author.id && i.user.id !== target.id) return i.reply({ content: "Nút này không dành cho bạn!", ephemeral: true });
@@ -284,7 +278,6 @@ if (msg.content.startsWith(":trade")) {
 
         if (myTrade.confirmed && i.customId !== 'trade_cancel') return i.reply({ content: "Đã chốt không thể sửa!", ephemeral: true });
 
-        // --- XỬ LÝ CHỌN GÀ ---
         if (i.customId === 'trade_ga') {
             const availableGa = myDb.gaCon.filter(g => !g.locked);
             if (availableGa.length === 0) return i.reply({ content: "Chuồng bạn không có gà hợp lệ!", ephemeral: true });
@@ -294,11 +287,9 @@ if (msg.content.startsWith(":trade")) {
             return i.reply({ content: "Chọn gà muốn thêm:", components: [new ActionRowBuilder().addComponents(select)], ephemeral: true });
         }
 
-        // --- XỬ LÝ XU & THÓC (Giao diện điều chỉnh) ---
         if (i.customId === 'trade_xu' || i.customId === 'trade_thoc') {
             const type = i.customId === 'trade_xu' ? 'coins' : 'thoc';
             const label = type === 'coins' ? 'Xu 🪙' : 'Thóc 🌾';
-            
             const adjRow1 = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId(`adj_${type}_100`).setLabel('+100').setStyle(ButtonStyle.Success),
                 new ButtonBuilder().setCustomId(`adj_${type}_10`).setLabel('+10').setStyle(ButtonStyle.Success),
@@ -309,11 +300,9 @@ if (msg.content.startsWith(":trade")) {
                 new ButtonBuilder().setCustomId(`adj_${type}_-10`).setLabel('-10').setStyle(ButtonStyle.Danger),
                 new ButtonBuilder().setCustomId(`adj_${type}_-1`).setLabel('-1').setStyle(ButtonStyle.Danger),
             );
-
             return i.reply({ content: `Đang điều chỉnh **${label}**. Hiện tại: **${myTrade[type]}**`, components: [adjRow1, adjRow2], ephemeral: true });
         }
 
-        // --- XỬ LÝ CÁC NÚT ĐIỀU CHỈNH TRONG EPHEMERAL ---
         if (i.customId.startsWith('adj_')) {
             const [, type, amount] = i.customId.split('_');
             const val = parseInt(amount);
@@ -328,7 +317,6 @@ if (msg.content.startsWith(":trade")) {
             return tradeMsg.edit({ embeds: [generateEmbed()] });
         }
 
-        // --- XỬ LÝ MENU CHỌN GÀ ---
         if (i.isStringSelectMenu()) {
             const chicken = myDb.gaCon.find(g => g.id.toString() === i.values[0]);
             if (!myTrade.items.some(it => it.id === chicken.id)) {
@@ -339,12 +327,10 @@ if (msg.content.startsWith(":trade")) {
             return i.update({ content: "Gà này đã có trên bàn trade!", components: [] });
         }
 
-        // --- XỬ LÝ CHỐT / HỦY ---
         if (i.customId === 'trade_confirm') {
             myTrade.confirmed = true;
             if (tradeData[msg.author.id].confirmed && tradeData[target.id].confirmed) {
                 const u1Tr = tradeData[msg.author.id]; const u2Tr = tradeData[target.id];
-                // Thực hiện hoán đổi
                 u1.coins -= u1Tr.coins; u1.coins += u2Tr.coins;
                 u2.coins -= u2Tr.coins; u2.coins += u1Tr.coins;
                 u1.thoc -= u1Tr.thoc; u1.thoc += u2Tr.thoc;
@@ -361,27 +347,29 @@ if (msg.content.startsWith(":trade")) {
         }
         await i.update({ embeds: [generateEmbed()] });
     });
-});
-// --- TÍNH NĂNG ĐÁ GÀ (PVP) ---
+}
+// --- TÍNH NĂNG ĐÁ GÀ (PVP) - BẢN TINH CHỈNH ---
 if (msg.content.startsWith(":daga")) {
     const p1 = msg.author;
     const p2 = msg.mentions.users.first();
 
-    // 1. Kiểm tra điều kiện
     if (!p2 || p2.id === p1.id || p2.bot) return msg.reply("❌ Bạn cần tag một người chơi khác để thách đấu!");
     
     const u1 = getUser(p1.id);
     const u2 = getUser(p2.id);
 
     if (!u2.started) return msg.reply("❌ Đối thủ của bạn chưa bắt đầu hành trình nuôi gà!");
-    if (!u1.equipped || !u2.equipped) return msg.reply("❌ Cả hai đều phải trang bị gà chiến (`:equip`) trước khi đá!");
-    if (u1.coins < 200 || u2.coins < 200) return msg.reply("❌ Cả hai cần tối thiểu 200 Xu để tham gia (phòng trường hợp gà bị thương cần chữa trị)!");
+    if (!u1.equippedGa || !u2.equippedGa) return msg.reply("❌ Cả hai đều phải trang bị gà chiến (`:thongtin`) trước khi đá!");
+    if (u1.coins < 200 || u2.coins < 200) return msg.reply("❌ Cả hai cần tối thiểu 200 Xu để tham gia!");
 
-    // 2. Lời mời thách đấu
     const challengeEmbed = new EmbedBuilder()
-        .setTitle("⚔️ THÁCH ĐẤU ĐÁ GÀ")
-        .setDescription(`<@${p1.id}> đem con gà **${u1.equipped.name}** thách đấu với **${u2.equipped.name}** của <@${p2.id}>!\n\n**Mức cược:** Người thua mất 200 xu viện phí.\n**Phần thưởng:** 200 Thóc & 100 Xu.`)
-        .setColor("#FF4500");
+        .setTitle("⚔️ LỜI THÁCH ĐẤU RỰC LỬA")
+        .setThumbnail("https://i.imgur.com/8QO5W5F.png")
+        .setDescription(`<@${p1.id}> đem chiến kê **${u1.equippedGa.name}** thách đấu với **${u2.equippedGa.name}** của <@${p2.id}>!\n\n` +
+                        `💰 **Mức cược:** Người thua mất **200 Xu** viện phí.\n` +
+                        `🎁 **Phần thưởng:** **200 Thóc** & **100 Xu** cho người thắng.`)
+        .setColor("#FF4500")
+        .setFooter({ text: "Bạn có 30 giây để xác nhận!" });
 
     const rowAccept = new ActionRowBuilder().addComponents(
         new ButtonBuilder().setCustomId('accept_daga').setLabel('Chấp Nhận').setStyle(ButtonStyle.Success),
@@ -390,7 +378,6 @@ if (msg.content.startsWith(":daga")) {
 
     const reply = await msg.reply({ embeds: [challengeEmbed], components: [rowAccept] });
 
-    // 3. Đợi đối thủ đồng ý
     const collectorAccept = reply.createMessageComponentCollector({ 
         filter: i => i.user.id === p2.id, 
         time: 30000, 
@@ -402,17 +389,17 @@ if (msg.content.startsWith(":daga")) {
             return i.update({ content: "🚫 Thách đấu đã bị từ chối.", embeds: [], components: [] });
         }
 
-        // Bắt đầu trận đấu
-        let turn = p1.id; // P1 đi trước
+        let turn = p1.id;
         let scores = { [p1.id]: 0, [p2.id]: 0 };
         const maxScore = 3;
 
         const updateGame = async (interaction, log) => {
             const gameEmbed = new EmbedBuilder()
                 .setTitle("🏟️ TRƯỜNG GÀ ĐANG RỰC LỬA")
-                .setDescription(`${log}\n\n**Tỉ số:**\n🔴 <@${p1.id}>: ${"⭐".repeat(scores[p1.id])}\n🔵 <@${p2.id}>: ${"⭐".repeat(scores[p2.id])}`)
-                .addFields({ name: "Lượt của", value: `<@${turn}>` })
-                .setColor(turn === p1.id ? "#FF0000" : "#0000FF");
+                .setDescription(`${log}\n\n**Tỉ số trận đấu:**\n🔴 <@${p1.id}>: ${"⭐".repeat(scores[p1.id])}${"⚫".repeat(maxScore-scores[p1.id])}\n🔵 <@${p2.id}>: ${"⭐".repeat(scores[p2.id])}${"⚫".repeat(maxScore-scores[p2.id])}`)
+                .addFields({ name: "Lượt tấn công", value: `⚡ <@${turn}>` })
+                .setColor(turn === p1.id ? "#FF0000" : "#0000FF")
+                .setFooter({ text: "Nhấn nút 'ĐÁ!' để ra đòn" });
 
             const rowKick = new ActionRowBuilder().addComponents(
                 new ButtonBuilder().setCustomId('kick_action').setLabel('ĐÁ!').setStyle(ButtonStyle.Primary)
@@ -421,68 +408,60 @@ if (msg.content.startsWith(":daga")) {
             await interaction.update({ embeds: [gameEmbed], components: [rowKick] });
         };
 
-        // Gửi giao diện trận đấu đầu tiên
-        await updateGame(i, `🥊 Trận đấu bắt đầu! <@${p1.id}> ra đòn trước.`);
+        await updateGame(i, `🥊 **Trận đấu bắt đầu!** <@${p1.id}> ra đòn trước.`);
 
         const gameCollector = reply.createMessageComponentCollector({
             componentType: ComponentType.Button,
-            time: 60000
+            time: 120000 // Trận đấu tối đa 2 phút
         });
 
         gameCollector.on('collect', async gi => {
-            if (gi.user.id !== turn) {
-                return gi.reply({ content: "⏳ Chưa đến lượt bạn!", ephemeral: true });
-            }
+            if (gi.user.id !== turn) return gi.reply({ content: "⏳ Chưa đến lượt bạn!", ephemeral: true });
 
-            const isHit = Math.random() < 0.5; // 50% tỉ lệ đá trúng
-            let log = "";
+            const hits = [
+                "💥 **Cú đá hiểm hóc!** Một đòn trời giáng vào đầu đối thủ!",
+                "⚡ **Phản xạ nhanh!** Gà của bạn tung cú đá móc cực đỉnh!",
+                "🔥 **Tuyệt kỹ!** Đối phương không kịp né tránh đòn tấn công."
+            ];
+            const misses = [
+                "🌬️ **Hụt rồi!** Con gà của bạn vừa đá vào không khí.",
+                "💨 **Quá chậm!** Đối thủ đã nhanh chân né được đòn này.",
+                "🥴 **Lạng quạng!** Gà của bạn đá trượt và suýt ngã."
+            ];
 
-            if (isHit) {
-                scores[turn]++;
-                log = `💥 **Cú đá hiểm hóc!** Gà của <@${turn}> đã đá trúng đối thủ!`;
-            } else {
-                log = `🌬️ **Hụt rồi!** Con gà của <@${turn}> vừa đá vào không khí.`;
-            }
+            const isHit = Math.random() < 0.5;
+            let log = isHit ? hits[Math.floor(Math.random() * hits.length)] : misses[Math.floor(Math.random() * misses.length)];
 
-            // Kiểm tra thắng cuộc
+            if (isHit) scores[turn]++;
+
             if (scores[turn] >= maxScore) {
+                gameCollector.stop();
                 const winnerId = turn;
                 const loserId = turn === p1.id ? p2.id : p1.id;
                 
                 const winU = getUser(winnerId);
                 const loseU = getUser(loserId);
 
-                winU.thoc += 200;
-                winU.coins += 100;
-                loseU.coins -= 200;
+                winU.thoc += 200; winU.coins += 100; loseU.coins -= 200;
                 saveData();
 
-                gameCollector.stop();
                 const winEmbed = new EmbedBuilder()
-                    .setTitle("🏆 CHIẾN THẮNG THUYẾT PHỤC")
-                    .setDescription(`Chúc mừng <@${winnerId}> đã thắng cuộc!\n\n🎁 **Phần thưởng:** +200 Thóc, +100 Xu\n🚑 **Đối thủ:** <@${loserId}> mất 200 Xu viện phí.`)
+                    .setTitle("🏆 CHIẾN THẮNG VANG DỘI")
+                    .setDescription(`Chúc mừng <@${winnerId}> đã thắng cuộc!\n\n🎁 **Thưởng:** +200 Thóc, +100 Xu\n🚑 **Hình phạt:** <@${loserId}> mất 200 Xu viện phí.`)
+                    .setThumbnail("https://i.imgur.com/39DbeHk.png")
                     .setColor("#FFD700");
 
                 return gi.update({ embeds: [winEmbed], components: [] });
             }
 
-            // Đổi lượt
             turn = turn === p1.id ? p2.id : p1.id;
             await updateGame(gi, log);
         });
+
+        gameCollector.on('end', (collected, reason) => {
+            if (reason === 'time') reply.edit({ content: "⏰ Trận đấu bị hủy do quá lâu không ai ra đòn!", components: [] });
+        });
     });
-}
-// --- LỆNH: TÚI TRỨNG ---
-if (msg.content === ":tuitrungga") {
-    const embedTui = `
-🥚 **KHO TRỨNG CỦA ${msg.author.username}**
-━━━━━━━━━━━━━━━━━━━━
-⚪ **Trứng Thường:** ${u.trung.thuong} quả
-🥈 **Trứng Bạc:** ${u.trung.bac} quả
-🥇 **Trứng Vàng:** ${u.trung.vang} quả
-━━━━━━━━━━━━━━━━━━━━
-*Dùng \`:aptrung <loại> <số lượng>\` để bắt đầu ấp!*`;
-    return msg.reply(embedTui);
 }
 // --- LỆNH: THỜI GIAN ẤP ---
 if (msg.content === ":thoigianap") {
@@ -883,8 +862,7 @@ if (msg.content === ":skipaptrung") {
 
     return msg.reply(`⏩ **TĂNG TỐC THÀNH CÔNG!**\n💰 Chi phí: **${skipCost} Xu**\n⏱️ Đã giảm **45 phút** thời gian chờ cho các trứng đang ấp.\n${willHatch ? "🐣 Một số trứng đã đủ thời gian, hãy nhắn tin tiếp theo để nhận gà!" : "⏳ Trứng vẫn cần thêm thời gian để nở."}`);
 }
-// --- LỆNH: XEM CHUỒNG GÀ PHÂN TRANG ---
-// --- LỆNH: XEM CHUỒNG GÀ (CẬP NHẬT HIỂN THỊ GIÁ TIỀN) ---
+// --- LỆNH: XEM CHUỒNG GÀ (PHÂN TRANG & HIỂN THỊ CHỈ SỐ) ---
 if (msg.content === ":chuonga") {
     const u = data[msg.author.id];
     if (!u || u.gaCon.length === 0) return msg.reply("🏚️ Chuồng trống hoắc à! Đi ấp trứng ngay đi.");
@@ -893,7 +871,6 @@ if (msg.content === ":chuonga") {
     let page = 0;
     const totalPages = Math.ceil(u.gaCon.length / pageSize);
 
-    // Hàm tạo Embed và Nút bấm theo trang
     const generateChuongMessage = (p) => {
         const start = p * pageSize;
         const chickens = u.gaCon.slice(start, start + pageSize);
@@ -901,68 +878,72 @@ if (msg.content === ":chuonga") {
         const list = chickens.map((g, i) => {
             const lockIcon = g.locked ? "🔒" : "🔓";
             const isEquipped = u.equippedGa && u.equippedGa.id === g.id ? " ✅ `[ĐANG DÙNG]`" : "";
-            
-            // Các thông số bạn yêu cầu
             const hp = g.hp || 50;
-            const atk = g.atk || Math.floor(hp / 10); // Nếu chưa có atk thì lấy 10% máu làm sức mạnh
-            const price = g.price || 10;
+            const atk = g.atk || Math.floor(hp / 10);
             
             return `**${start + i + 1}. ${g.name}** ${lockIcon}${isEquipped}\n` +
-                   `└ ✨ Hệ: \`${g.rarity}\` | ❤️ HP: \`${hp}\` | 💪 ATK: \`${atk}\` | 💰 Giá: \`${price.toLocaleString()}\``;
+                   `└ ✨ Hệ: \`${g.rarity}\` | ❤️ HP: \`${hp}\` | 💪 ATK: \`${atk}\` | 💰 Giá: \`${(g.price || 10).toLocaleString()}\``;
         }).join("\n\n");
 
         const embed = new EmbedBuilder()
             .setTitle(`🏡 CHUỒNG GÀ CỦA ${msg.author.username}`)
             .setDescription(list)
             .setColor("#F1C40F")
-            .setThumbnail(msg.author.displayAvatarURL())
-            .setFooter({ text: `Trang ${p + 1}/${totalPages} | Tổng cộng: ${u.gaCon.length} con gà` });
+            .setFooter({ text: `Trang ${p + 1}/${totalPages} | Tổng cộng: ${u.gaCon.length} con` });
 
-        // Tạo nút bấm
         const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder()
-                .setCustomId('prev_page')
-                .setLabel('⬅️ Trang trước')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(p === 0), // Vô hiệu hóa nếu là trang đầu
-            new ButtonBuilder()
-                .setCustomId('next_page')
-                .setLabel('Trang sau ➡️')
-                .setStyle(ButtonStyle.Primary)
-                .setDisabled(p === totalPages - 1) // Vô hiệu hóa nếu là trang cuối
+            new ButtonBuilder().setCustomId('prev_page').setLabel('⬅️').setStyle(ButtonStyle.Primary).setDisabled(p === 0),
+            new ButtonBuilder().setCustomId('next_page').setLabel('➡️').setStyle(ButtonStyle.Primary).setDisabled(p === totalPages - 1)
         );
 
         return { embeds: [embed], components: totalPages > 1 ? [row] : [] };
     };
 
     const chuongMsg = await msg.reply(generateChuongMessage(page));
-
-    // Nếu chỉ có 1 trang thì không cần lắng nghe sự kiện nút bấm
     if (totalPages <= 1) return;
 
-    const collector = chuongMsg.createMessageComponentCollector({
-        filter: i => i.user.id === msg.author.id,
-        time: 60000 // Sau 60 giây nút sẽ hết hạn
-    });
-
+    const collector = chuongMsg.createMessageComponentCollector({ filter: i => i.user.id === msg.author.id, time: 60000 });
     collector.on('collect', async i => {
-        if (i.customId === 'next_page') {
-            page++;
-        } else if (i.customId === 'prev_page') {
-            page--;
-        }
-
+        if (i.customId === 'next_page') page++;
+        else if (i.customId === 'prev_page') page--;
         await i.update(generateChuongMessage(page));
     });
-
-    collector.on('end', () => {
-        // Xóa nút bấm khi hết thời gian để tránh bấm lỗi
-        chuongMsg.edit({ components: [] }).catch(() => {});
-    });
 }
-// --- LỆNH: BÁN TRỨNG (Đã sửa lỗi khai báo u) ---
+// --- HỆ THỐNG WORLD BOSS (DÁN VÀO ĐÂY) ---
+    if (msg.content === ":spawnbox" && adminIDs.includes(msg.author.id)) {
+        worldBoss = {
+            name: "Gà Khổng Lồ Phẫn Nộ",
+            hp: 5000,
+            maxHp: 5000,
+            contributors: {}
+        };
+        return msg.reply("🔥 **MỘT CON BOSS THẾ GIỚI ĐÃ XUẤT HIỆN!**");
+    }
+    if (msg.content === ":attack") {
+    if (!worldBoss) return msg.reply("📭 Hiện không có Boss nào xuất hiện.");
+    const u = data[msg.author.id];
+    if (!u || !u.equippedGa) return msg.reply("❌ Bạn cần đeo trang bị cho một con gà để chiến đấu!");
+
+    const damage = u.equippedGa.atk || 10;
+    worldBoss.hp -= damage;
+    worldBoss.contributors[msg.author.id] = (worldBoss.contributors[msg.author.id] || 0) + damage;
+
+    if (worldBoss.hp <= 0) {
+        let winnerMsg = `🎊 **BOSS ĐÃ BỊ TIÊU DIỆT!**\n\n**Bảng sát thương:**\n`;
+        for (const [id, dmg] of Object.entries(worldBoss.contributors)) {
+            const thuong = dmg * 2; // Thưởng 2 coin mỗi 1 dame
+            data[id].coins += thuong;
+            winnerMsg += `<@${id}>: ${dmg} dame -> Nhận ${thuong} Coins\n`;
+        }
+        worldBoss = null;
+        saveData();
+        return msg.channel.send(winnerMsg);
+    }
+    return msg.reply(`⚔️ Bạn gây **${damage}** sát thương! Boss còn **${worldBoss.hp}/${worldBoss.maxHp}** HP.`);
+}
+// --- LỆNH: BÁN TRỨNG ---
 if (msg.content.startsWith(":selltrung")) {
-    const u = data[msg.author.id]; // Khai báo u
+    const u = data[msg.author.id]; 
     if (!u) return msg.reply("❌ Bạn chưa có trang trại! Hãy gõ `:start`.");
 
     const args = msg.content.split(" ");
@@ -976,7 +957,7 @@ if (msg.content.startsWith(":selltrung")) {
     const tienThu = sl * gia[loai];
 
     u.trung[loai] -= sl;
-    u.coins += (u.coins || 0) + tienThu;
+    u.coins = (u.coins || 0) + tienThu;
     saveData();
     return msg.reply(`💰 Bạn đã bán **${sl} trứng ${loai}** và thu về **${tienThu.toLocaleString()} Coins**!`);
 }
