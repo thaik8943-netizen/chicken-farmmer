@@ -189,7 +189,7 @@ client.on("messageCreate", async (msg) => {
         });
 
         if (no.length > 0) {
-            saveData();
+            saveData(msg.author.id);
             let congrats = `🐣 **KẾT QUẢ ẤP TRỨNG:**\n${no.map(n => `> ✨ Bạn đã nhận được 1 gà **${n}**`).join("\n")}`;
             if (no.some(n => n.includes("Legendary"))) {
                 congrats = `🌟 **HUYỀN THOẠI XUẤT HIỆN!** 🌟\nChúc mừng <@${msg.author.id}> đã sở hữu được gà **Legendary 🟡** cực hiếm!!!`;
@@ -205,7 +205,7 @@ client.on("messageCreate", async (msg) => {
         u.coins = 500;
         u.thoc = 1000;
         u.gaCon.push({ ...GA_LIST[0], id: Date.now(), locked: false, hp: 50, price: 10 });
-        saveData();
+        saveData(msg.author.id);
         return msg.reply("🎉 **CHÚC MỪNG!** Bạn đã nhận được mảnh đất đầu tiên và **1 con gà mặc định**.\n👉 Gõ `:thongtin` để xem trang trại hoặc `:chogaan` để bắt đầu kiếm trứng nhé!");
     }
 // --- ADMIN GIVE (Bản Nâng Cấp: Xu, Thóc, Trứng, Gà) ---
@@ -245,7 +245,7 @@ if (msg.content.startsWith(":give")) {
         }
     }
 
-    saveData(); 
+    saveData(msg.author.id);
     return msg.reply(`🎁 Đã tặng **${amt} ${type}** cho <@${target.id}> thành công!`);
 }
 
@@ -269,7 +269,7 @@ if (msg.content === ":upga" || msg.content === ":upthoc" || msg.content === ":up
 
     u.coins -= cost;
     u[key] = currentLv + 1;
-    saveData();
+    saveData(msg.author.id);
     
     return msg.reply(`🚀 Nâng cấp thành công! **${typeName}** đã lên **Lv.${u[key]}**.\n💸 Bạn đã chi: **${cost.toLocaleString()} Coins**.`);
 }
@@ -383,7 +383,7 @@ if (msg.content.startsWith(":trade")) {
                 u1Tr.items.forEach(it => { u1.gaCon = u1.gaCon.filter(g => g.id !== it.id); u2.gaCon.push(it); });
                 u2Tr.items.forEach(it => { u2.gaCon = u2.gaCon.filter(g => g.id !== it.id); u1.gaCon.push(it); });
 
-                saveData(); collector.stop();
+                saveData(msg.author.id); collector.stop();
                 return i.update({ content: "🎊 **GIAO DỊCH THÀNH CÔNG!**", embeds: [generateEmbed()], components: [] });
             }
         } else if (i.customId === 'trade_cancel') {
@@ -488,7 +488,7 @@ if (msg.content.startsWith(":daga")) {
                 const loseU = getUser(loserId);
 
                 winU.thoc += 200; winU.coins += 100; loseU.coins -= 200;
-                saveData();
+                saveData(msg.author.id);
 
                 const winEmbed = new EmbedBuilder()
                     .setTitle("🏆 CHIẾN THẮNG VANG DỘI")
@@ -551,7 +551,7 @@ if (msg.content.startsWith(":equip")) {
     // Ngưỡng 80% để xác nhận trang bị
     if (maxSimilarity >= 0.8) {
         u.equippedGa = bestMatch; 
-        saveData();
+        saveData(msg.author.id);
 
         return msg.reply(`✅ Đã nhận diện: 🐔 **${bestMatch.name}**\n👉 Đã trang bị thành công!`);
     } 
@@ -576,7 +576,7 @@ if (msg.content.startsWith(":equip")) {
             if (r < 0.01) nhan.vang++; else if (r < 0.07) nhan.bac++; else nhan.thuong++;
         }
         u.trung.thuong += nhan.thuong; u.trung.bac += nhan.bac; u.trung.vang += nhan.vang;
-        saveData();
+        saveData(msg.author.id);
         msg.reply(`🌾 Đã dùng ${sl * 50} thóc. Thu về: 🥚 ${nhan.thuong} Thường, 🥈 ${nhan.bac} Bạc, 🥇 ${nhan.vang} Vàng.`);
     }
 // --- TRỘM GÀ BẺ KHÓA ---
@@ -592,10 +592,10 @@ const coll = msg.channel.createMessageCollector({ filter: m => m.author.id === m
 coll.on('collect', m => {
 const hint = getHint(secret, m.content);
 if (m.content === secret) {
-const s = enemy.gaCon.pop(); u.gaCon.push(s); saveData(); coll.stop();
+const s = enemy.gaCon.pop(); u.gaCon.push(s); saveData(msg.author.id); coll.stop();
 return m.reply(`🎊 **THÀNH CÔNG!** Trộm được **${s.name}**`);
 } else if (coll.collected.size >= 5) {
-u.coins = Math.max(0, u.coins - 200); saveData();
+u.coins = Math.max(0, u.coins - 200); saveData(msg.author.id);
 return m.reply(`🚨 **BỊ BẮT!** Mã là ${secret}. Phạt 200 Coins.`);
 } else m.reply(`Kết quả: ${hint} (Còn ${5 - coll.collected.size} lượt)`);
 });
@@ -743,7 +743,7 @@ if (msg.content.startsWith(":buy")) {
         u.thoc += 1000 * quantity;
     }
 
-    saveData();
+    saveData(msg.author.id);
     return msg.reply(`✅ Giao dịch thành công!\n🛒 Bạn đã mua: **${quantity}x ${itemName}**\n💰 Tổng chi: **${totalCost.toLocaleString()} Coins**.`);
 }
 
@@ -788,7 +788,7 @@ if (msg.content.startsWith(":aptrung")) {
         finishAt: now + tm[t] 
     });
 
-    saveData();
+    saveData(msg.author.id);
     return msg.reply(`🥚 Đã bỏ **${a}** quả trứng **${t}** vào máy.\n⏱️ Thời gian chờ: **${formatTime(tm[t])}**.\n⚠️ *Lưu ý: Bạn không thể ấp thêm cho đến khi đợt này nở xong!*`);
 }
 
@@ -829,7 +829,7 @@ if (msg.content.startsWith(":sellga")) {
     });
 
     u.coins += totalMoney;
-    saveData();
+    saveData(msg.author.id);
 
     // 6. Thông báo kết quả
     let response = `💰 Đã bán thành công **${canSell.length}** gà hệ **${targetRarity}**.\n✅ Thu về: **${totalMoney.toLocaleString()} Xu**.`;
@@ -841,7 +841,7 @@ if (msg.content.startsWith(":sellga")) {
 }
 if (msg.content === ":daily") {
 if (now - u.lastDaily < 7200000) return msg.reply("⏳ Chờ 2h!");
-u.thoc += 500; u.lastDaily = now; saveData(); msg.reply("🌾 +500 Thóc!");
+u.thoc += 500; u.lastDaily = now; saveData(msg.author.id); msg.reply("🌾 +500 Thóc!");
 }
 
 // --- LỆNH: KHÓA/MỞ KHÓA GÀ ---
@@ -866,7 +866,7 @@ if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
 
     if (count === 0) return msg.reply(`❌ Bạn không có con gà nào thuộc hệ **${rarityStr}**.`);
 
-    saveData();
+    saveData(msg.author.id);
     return msg.reply(`${isLock ? "🔒 Đã khóa" : "🔓 Đã mở khóa"} thành công **${count}** con gà hệ **${rarityStr}**. Những con gà này sẽ không bị bán bởi lệnh \`:sellga\`.`);
 }
 // --- LỆNH: SKIP 45 PHÚT ẤP TRỨNG (:skipaptrung) ---
@@ -903,7 +903,7 @@ if (msg.content === ":skipaptrung") {
         trung.finishAt -= skipAmount;
     });
 
-    saveData();
+    saveData(msg.author.id);
 
     // Kiểm tra xem sau khi trừ có đợt nào nở luôn không
     const willHatch = u.dangAp.some(trung => now >= trung.finishAt);
@@ -1042,7 +1042,7 @@ if (msg.content === ":attack") {
 
         // Reset trạng thái Boss và lưu dữ liệu người dùng
         worldBoss = null;
-        saveData(); // Đảm bảo hàm saveData() của bạn hoạt động để lưu xu vào file JSON
+        saveData(msg.author.id); // Đảm bảo hàm saveData() của bạn hoạt động để lưu xu vào file JSON
         return;
     }
 
@@ -1066,7 +1066,7 @@ if (msg.content.startsWith(":selltrung")) {
 
     u.trung[loai] -= sl;
     u.coins = (u.coins || 0) + tienThu;
-    saveData();
+    saveData(msg.author.id);
     return msg.reply(`💰 Bạn đã bán **${sl} trứng ${loai}** và thu về **${tienThu.toLocaleString()} Coins**!`);
 }
 // --- LỆNH: KIỂM TRA RUỘNG LÚA (Đã sửa lỗi khai báo u) ---
@@ -1136,7 +1136,7 @@ if (msg.content === ":thuhoach") {
     // 4. Cập nhật dữ liệu
     u.thoc = (u.thoc || 0) + thocNhanDuoc;
     u.lastTrong = now; // Reset thời gian về lúc vừa gặt (bắt đầu vụ mới ngay lập tức)
-    saveData();
+    saveData(msg.author.id);
 
     // 5. Phản hồi người chơi
     const thuHoachEmbed = new EmbedBuilder()
@@ -1171,7 +1171,7 @@ if (msg.content === ":tronglua") {
 
     u.thoc += thuHoach;
     u.lastTrong = now;
-    saveData();
+    saveData(msg.author.id);
 
     return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
 }
