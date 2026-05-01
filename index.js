@@ -64,7 +64,32 @@ async function connectDB() {
     }
 }
 connectDB();
+// --- SỰ KIỆN: TỰ CẤP ROLE KHI CÓ THÀNH VIÊN MỚI VÀO SERVER ---
+client.on("guildMemberAdd", async (member) => {
+    const roleID = "1499451733888335913"; // ID Role Duy Hòa cung cấp
 
+    // 1. Tìm role trong máy chủ mà người chơi vừa tham gia
+    const role = member.guild.roles.cache.get(roleID);
+
+    if (!role) {
+        return console.log(`❌ Không tìm thấy Role ID ${roleID} tại máy chủ: ${member.guild.name}`);
+    }
+
+    // 2. Tiến hành cấp role ngay lập tức
+    try {
+        await member.roles.add(role);
+        console.log(`✅ Đã tự động cấp role ${role.name} cho thành viên mới: ${member.user.tag}`);
+        
+        // (Tùy chọn) Gửi lời chào mừng kèm thông báo đã cấp role
+        const welcomeChannel = member.guild.systemChannel; // Hoặc tìm channel cụ thể theo ID
+        if (welcomeChannel) {
+            welcomeChannel.send(`Chào mừng <@${member.user.id}> gia nhập máy chủ! Bạn đã được cấp role **${role.name}** tự động. 🌾`);
+        }
+    } catch (e) {
+        console.log(`❌ Lỗi cấp role tự động cho ${member.user.tag}: ` + e.message);
+        console.log("👉 Nhắc Nhở: Hãy kiểm tra xem role của Bot đã nằm TRÊN role này chưa nhé!");
+    }
+});
 // Thay thế hàm saveData cũ thành hàm lưu lên mây
 async function saveData(userId) {
     if (!userId) return; 
