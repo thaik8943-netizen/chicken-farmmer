@@ -778,7 +778,7 @@ if (msg.content.startsWith(":equip")) {
     });
 
     // Ngưỡng 80% để xác nhận trang bị
-    if (maxSimilarity >= 0.8) {
+    if (maxSimilarity >= 0.65) {
         u.equippedGa = bestMatch; 
         saveData(msg.author.id);
 
@@ -1186,7 +1186,8 @@ if (msg.content === ":daily") {
 // --- LỆNH: KHÓA/MỞ KHÓA GÀ (HỆ HOẶC TÊN 80%) ---
 
 if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
-    const u = getUser(msg.author.id); // THÊM DÒNG NÀY
+    const u = getUser(msg.author.id);
+    const now = Date.now();// THÊM DÒNG NÀY
     const isLock = msg.content.startsWith(":lockga");
     const args = msg.content.split(" ");
     const rawInput = args.slice(1).join(" "); // Lấy toàn bộ phần phía sau lệnh
