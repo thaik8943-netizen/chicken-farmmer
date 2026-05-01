@@ -1121,9 +1121,9 @@ if (msg.content === ":help") {
                 desc = ">>> 🏚️ `:upga`: Nâng cấp chuồng.\n🏭 `:upaptrung`: Nâng cấp máy ấp.\n📦 `:upthoc`: Nâng cấp kho thóc.";
                 color = "#95A5A6";
                 break;
-            case 'market_trade':
+            case 'trade':
                 title = "🤝 GIAO THƯƠNG & CHỢ GÀ";
-                desc = ">>> 🛒 `:market`: Xem chợ cộng đồng.\n📤 `:market post`: Đăng bán gà lên chợ.\n📦 `:trade`: Giao dịch trực tiếp với người chơi.";
+                desc = ">>> 📦 `:trade`: Giao dịch trực tiếp với người chơi.";
                 color = "#2ECC71";
                 break;
             case 'world_boss': // Cập nhật nội dung Boss Thế Giới
