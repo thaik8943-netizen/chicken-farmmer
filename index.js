@@ -85,7 +85,7 @@ client.on("messageCreate", async (msg) => {
     const today = new Date().setHours(0, 0, 0, 0);
 
     if (u.lastEatReset !== today) { u.eatToday = 0; u.lastEatReset = today; }
-    }
+    });
 
     // --- LOGIC TỰ ĐỘNG NỞ TRỨNG ---
     if (u.dangAp && u.dangAp.length > 0) {
