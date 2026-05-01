@@ -716,57 +716,87 @@ if (msg.content.startsWith(":equip")) {
         msg.reply(`🌾 Đã dùng ${sl * 50} thóc. Thu về: 🥚 ${nhan.thuong} Thường, 🥈 ${nhan.bac} Bạc, 🥇 ${nhan.vang} Vàng.`);
     }
 // --- TRỘM GÀ BẺ KHÓA (CẬP NHẬT TÍNH CẢ GÀ KHÓA) ---
+// --- TRỘM GÀ BẺ KHÓA (CÓ BIẾN CHỜ 2 TIẾNG) ---
 if (msg.content.startsWith(":tromga")) {
     const target = msg.mentions.users.first();
     if (!target || target.id === msg.author.id) return msg.reply("❌ Hãy tag người bạn muốn trộm!");
 
-    const enemy = getUser(target.id);
-    const cd = 2 * 60 * 60 * 1000;
+    const enemy = getUser(target.id); //
+    const now = Date.now(); //
+    
+    // Thiết lập thời gian chờ: 2 tiếng = 2 * 60 * 60 * 1000 miligiây
+    const cooldownTime = 2 * 60 * 60 * 1000; 
 
-    if (now - u.lastSteal < cd) return msg.reply(`⏳ Chờ ${formatTime(cd - (now - u.lastSteal))}`);
+    // Kiểm tra xem đã đủ 2 tiếng "trốn trong nhà" chưa
+    if (u.lastSteal && now - u.lastSteal < cooldownTime) {
+        const remaining = cooldownTime - (now - u.lastSteal);
+        return msg.reply(`⏳ Bạn đang bị truy nã! Hãy trốn trong nhà thêm **${formatTime(remaining)}** nữa mới dám ra đường trộm tiếp.`); //
+    }
 
-    // Kiểm tra tổng số gà (tính cả gà đã khóa)
-    if (enemy.gaCon.length <= 1) return msg.reply("❌ Đối phương chỉ còn 1 con gà duy nhất, không thể trộm!");
+    // Kiểm tra điều kiện gà của đối phương (tính cả gà khóa)
+    if (enemy.gaCon.length <= 1) return msg.reply("❌ Đối phương chỉ còn 1 con gà duy nhất, không thể trộm!"); //
 
-    // Lọc ra danh sách gà có thể trộm (gà không bị khóa)
-    const stealableGa = enemy.gaCon.filter(g => !g.locked);
-    if (stealableGa.length === 0) return msg.reply("❌ Đối phương đã khóa tất cả gà, không thể bẻ khóa!");
+    const stealableGa = enemy.gaCon.filter(g => !g.locked); //
+    if (stealableGa.length === 0) return msg.reply("❌ Đối phương đã khóa tất cả gà, không thể bẻ khóa!"); //
 
-    u.lastSteal = now; 
-    const secret = Math.floor(10000 + Math.random() * 90000).toString();
-    msg.reply("🕵️ **BẺ KHÓA (5 số):** 🟢 Đúng | 🟡 Sai chỗ | 🔴 Sai số. Có 5 lượt!");
+    // Nếu đủ điều kiện, cập nhật thời gian trộm mới nhất ngay lập tức
+    u.lastSteal = now; //
+    
+    const secret = Math.floor(10000 + Math.random() * 90000).toString(); //
+    msg.reply("🕵️ **HỆ THỐNG BẺ KHÓA HIỆN ĐẠI**\n🟢: Đúng | 🟡: Sai chỗ | 🔴: Sai số\n*Bạn có 5 lượt đoán để tẩu thoát!*"); //
 
     const coll = msg.channel.createMessageCollector({ 
         filter: m => m.author.id === msg.author.id && /^\d{5}$/.test(m.content), 
         time: 60000, 
         max: 5 
-    });
+    }); //
 
     coll.on('collect', async m => {
-        const hint = getHint(secret, m.content);
-        if (m.content === secret) {
-            // Lấy ngẫu nhiên 1 con gà không bị khóa
+        const guess = m.content;
+        let secretArr = secret.split('');
+        let guessArr = guess.split('');
+        let resultArr = Array(5).fill("🔴");
+
+        // Logic so sánh vị trí và màu sắc (như phiên bản trước)
+        for (let i = 0; i < 5; i++) {
+            if (guessArr[i] === secretArr[i]) {
+                resultArr[i] = "🟢";
+                secretArr[i] = null;
+                guessArr[i] = null;
+            }
+        }
+        for (let i = 0; i < 5; i++) {
+            if (guessArr[i] !== null) {
+                let foundIndex = secretArr.indexOf(guessArr[i]);
+                if (foundIndex !== -1) {
+                    resultArr[i] = "🟡";
+                    secretArr[foundIndex] = null;
+                }
+            }
+        }
+
+        const visualHint = resultArr.join(" ");
+        const remainingAttempts = 5 - coll.collected.size; //
+
+        if (guess === secret) {
             const randomIndex = Math.floor(Math.random() * stealableGa.length);
             const s = stealableGa[randomIndex];
-
-            // Xóa gà khỏi túi đối phương và thêm vào túi người trộm
             enemy.gaCon = enemy.gaCon.filter(g => g.id !== s.id);
             u.gaCon.push(s);
 
-            await saveData(msg.author.id);
-            await saveData(target.id); // Lưu lại dữ liệu của cả nạn nhân
+            await saveData(msg.author.id); //
+            await saveData(target.id); //
             coll.stop();
-            return m.reply(`🎊 **THÀNH CÔNG!** Bạn đã bẻ khóa và trộm được **${s.name}**!`);
-        } else if (coll.collected.size >= 5) {
-            u.coins = Math.max(0, (u.coins || 0) - 200);
-            await saveData(msg.author.id);
-            return m.reply(`🚨 **BỊ BẮT!** Mã đúng là ${secret}. Bạn bị phạt 200 Coins.`);
+            return m.reply(`🎊 **THÀNH CÔNG!**\n${visualHint}\nBạn đã trộm được **${s.name}** và tẩu thoát an toàn!`); //
+        } else if (remainingAttempts <= 0) {
+            u.coins = Math.max(0, (u.coins || 0) - 200); //
+            await saveData(msg.author.id); //
+            return m.reply(`🚨 **BỊ BẮT!**\n${visualHint}\nMã đúng là **${secret}**. Bạn bị phạt 200 Coins.`); //
         } else {
-            m.reply(`Kết quả: ${hint} (Còn ${5 - coll.collected.size} lượt đoán)`);
+            m.reply(`🔍 **Phân tích:** ${visualHint}\n📉 Còn lại: **${remainingAttempts} lượt**.`); //
         }
     });
 }
-
 // --- THÔNG TIN & BXH ---
 if (msg.content === ":thongtin") {
     let title = u.coins > 100000 ? "🔱 Huyền Thoại" : u.coins > 10000 ? "💰 Phú Hộ" : "🚜 Nông Dân";
@@ -1121,15 +1151,22 @@ if (msg.content === ":chuonga") {
     const u = data[msg.author.id];
     if (!u || u.gaCon.length === 0) return msg.reply("🏚️ Chuồng trống hoắc à! Đi ấp trứng ngay đi.");
 
-    const pageSize = 5; 
+    let currentFilter = "ALL"; // Mặc định hiển thị tất cả
     let page = 0;
-    const totalPages = Math.ceil(u.gaCon.length / pageSize);
+    const pageSize = 5;
 
-    const generateChuongMessage = (p) => {
+    const generateChuongMessage = (p, filter) => {
+        // 1. Lọc gà theo hệ
+        let filteredGa = u.gaCon;
+        if (filter !== "ALL") {
+            filteredGa = u.gaCon.filter(g => g.rarity.toUpperCase().includes(filter));
+        }
+
+        const totalPages = Math.ceil(filteredGa.length / pageSize) || 1;
         const start = p * pageSize;
-        const chickens = u.gaCon.slice(start, start + pageSize);
-        
-        const list = chickens.map((g, i) => {
+        const chickens = filteredGa.slice(start, start + pageSize);
+
+        let list = chickens.map((g, i) => {
             const lockIcon = g.locked ? "🔒" : "🔓";
             const isEquipped = u.equippedGa && u.equippedGa.id === g.id ? " ✅ `[ĐANG DÙNG]`" : "";
             const hp = g.hp || 50;
@@ -1139,28 +1176,46 @@ if (msg.content === ":chuonga") {
                    `└ ✨ Hệ: \`${g.rarity}\` | ❤️ HP: \`${hp}\` | 💪 ATK: \`${atk}\` | 💰 Giá: \`${(g.price || 10).toLocaleString()}\``;
         }).join("\n\n");
 
-        const embed = new EmbedBuilder()
-            .setTitle(`🏡 CHUỒNG GÀ CỦA ${msg.author.username}`)
-            .setDescription(list)
-            .setColor("#F1C40F")
-            .setFooter({ text: `Trang ${p + 1}/${totalPages} | Tổng cộng: ${u.gaCon.length} con` });
+        if (filteredGa.length === 0) list = `Hiện không có gà hệ **${filter}** nào trong chuồng.`;
 
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('prev_page').setLabel('⬅️').setStyle(ButtonStyle.Primary).setDisabled(p === 0),
-            new ButtonBuilder().setCustomId('next_page').setLabel('➡️').setStyle(ButtonStyle.Primary).setDisabled(p === totalPages - 1)
+        const embed = new EmbedBuilder()
+            .setTitle(`🏡 CHUỒNG GÀ CỦA ${msg.author.username} (${filter})`)
+            .setDescription(list)
+            .setColor(filter === "LEGENDARY" ? "#F1C40F" : "#3498DB")
+            .setFooter({ text: `Trang ${p + 1}/${totalPages} | Lọc: ${filter} (${filteredGa.length} con)` });
+
+        // Hàng 1: Nút phân loại
+        const rowFilter = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('filter_ALL').setLabel('Tất cả').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('filter_COMMON').setLabel('Common').setStyle(ButtonStyle.Secondary),
+            new ButtonBuilder().setCustomId('filter_RARE').setLabel('Rare').setStyle(ButtonStyle.Primary),
+            new ButtonBuilder().setCustomId('filter_EPIC').setLabel('Epic').setStyle(ButtonStyle.Success),
+            new ButtonBuilder().setCustomId('filter_LEGENDARY').setLabel('Legend').setStyle(ButtonStyle.Danger)
         );
 
-        return { embeds: [embed], components: totalPages > 1 ? [row] : [] };
+        // Hàng 2: Nút chuyển trang
+        const rowPage = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('prev_page').setLabel('⬅️').setStyle(ButtonStyle.Primary).setDisabled(p === 0),
+            new ButtonBuilder().setCustomId('next_page').setLabel('➡️').setStyle(ButtonStyle.Primary).setDisabled(p >= totalPages - 1)
+        );
+
+        return { embeds: [embed], components: [rowFilter, rowPage] };
     };
 
-    const chuongMsg = await msg.reply(generateChuongMessage(page));
-    if (totalPages <= 1) return;
+    const chuongMsg = await msg.reply(generateChuongMessage(page, currentFilter));
 
-    const collector = chuongMsg.createMessageComponentCollector({ filter: i => i.user.id === msg.author.id, time: 60000 });
+    const collector = chuongMsg.createMessageComponentCollector({ filter: i => i.user.id === msg.author.id, time: 120000 });
+
     collector.on('collect', async i => {
-        if (i.customId === 'next_page') page++;
-        else if (i.customId === 'prev_page') page--;
-        await i.update(generateChuongMessage(page));
+        if (i.customId.startsWith('filter_')) {
+            currentFilter = i.customId.replace('filter_', '');
+            page = 0; // Reset về trang đầu khi đổi bộ lọc
+        } else if (i.customId === 'next_page') {
+            page++;
+        } else if (i.customId === 'prev_page') {
+            page--;
+        }
+        await i.update(generateChuongMessage(page, currentFilter));
     });
 }
 // --- HỆ THỐNG WORLD BOSS (LỆNH CHUẨN) ---
