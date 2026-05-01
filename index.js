@@ -565,62 +565,181 @@ if (msg.content.startsWith(":trade")) {
     });
 }
 // --- LỆNH: TRIỆU HỒI SHOP & THÔNG BÁO TOÀN CẦU ---
+// --- LỆNH: TRIỆU HỒI SHOP THẦN THOẠI (DECOR & BUTTONS) ---
 if (msg.content === ":trieuhoishopthanthoai") {
     const adminID = "873867371419422742"; 
     if (msg.author.id !== adminID) return msg.reply("❌ Bạn không có quyền triệu hồi thần linh!");
 
     const items = [
-        { id: "ve_restart", name: "Vé Restart 🎟️", price: 50000, desc: "Bỏ qua thời gian ấp trứng ngay lập tức." },
-        { id: "trung_god", name: "Trứng God 🥚", price: 200000, desc: "Nở ra 100% gà Legendary." },
-        { id: "hop_bi_an", name: "Hộp Bí Ẩn 🎁", price: 30000, desc: "Mở ra ngẫu nhiên 1,000 - 20,000 Xu/Thóc." }
+        { id: "ve_restart", name: "Vé Restart 🎟️", price: 50000, desc: "Bỏ qua thời gian ấp trứng ngay lập tức.", color: "#3498DB" },
+        { id: "trung_god", name: "Trứng God 🥚", price: 200000, desc: "Nở ra 100% gà Legendary.", color: "#F1C40F" },
+        { id: "hop_bi_an", name: "Hộp Bí Ẩn 🎁", price: 30000, desc: "Mở ra ngẫu nhiên 1,000 - 20,000 Xu/Thóc.", color: "#9B59B6" }
     ];
 
+    // Chọn ngẫu nhiên vật phẩm
     currentSpecialShop = items[Math.floor(Math.random() * items.length)];
 
-    const announcement = `✨ **SHOP THẦN THOẠI ĐÃ XUẤT HIỆN!** ✨\n\n🛒 Vật phẩm: **${currentSpecialShop.name}**\n💰 Giá: **${currentSpecialShop.price.toLocaleString()} Xu**\n📝 *${currentSpecialShop.desc}*\n\n⏰ Shop chỉ tồn tại trong **5 phút**! Hãy gõ \`:mua\` để sở hữu ngay!`;
+    // Tạo Embed Decor
+    const shopEmbed = new EmbedBuilder()
+        .setTitle("✨ SHOP THẦN THOẠI ĐANG MỞ CỬA ✨")
+        .setDescription(`> *Vị thần thương nhân vừa ghé qua trang trại của bạn mang theo báu vật hiếm có!*`)
+        .addFields(
+            { name: "📦 Vật phẩm", value: `**${currentSpecialShop.name}**`, inline: true },
+            { name: "💰 Giá bán", value: `\`${currentSpecialShop.price.toLocaleString()} Xu\``, inline: true },
+            { name: "📝 Hiệu quả", value: `*${currentSpecialShop.desc}*` },
+            { name: "⏰ Thời gian", value: `Kết thúc lúc <t:${Math.floor((Date.now() + 15 * 60 * 1000) / 1000)}:R>` }
+        )
+        .setColor(currentSpecialShop.color)
+        .setThumbnail("https://i.imgur.com/8E9p6fS.gif") // Ảnh minh họa shop
+        .setFooter({ text: "Nhấn nút bên dưới để mua ngay!", iconURL: msg.author.displayAvatarURL() });
 
-    let guildCount = 0;
-    client.guilds.cache.forEach(async (guild) => {
-        const channel = guild.channels.cache.find(c => 
-            c.type === 0 && 
-            c.permissionsFor(guild.members.me).has("SendMessages")
-        );
+    // Tạo Nút bấm
+    const row = new ActionRowBuilder().addComponents(
+        new ButtonBuilder()
+            .setCustomId('buy_special_item')
+            .setLabel(`Mua ${currentSpecialShop.name}`)
+            .setEmoji('🛒')
+            .setStyle(ButtonStyle.Success)
+    );
 
-        if (channel) {
-            try {
-                await channel.send(announcement);
-                guildCount++;
-            } catch (e) {
-                console.log(`Lỗi gửi tin đến ${guild.name}`);
+    // Gửi đến các kênh chỉ định
+    BOSS_CHANNELS.forEach(async (channelId) => {
+        try {
+            const channel = await client.channels.fetch(channelId);
+            if (channel) {
+                await channel.send({ embeds: [shopEmbed], components: [row] });
             }
+        } catch (e) {
+            console.log(`❌ Lỗi gửi shop đến kênh ${channelId}: ${e.message}`);
         }
     });
 
-    msg.reply(`🚀 Đã triệu hồi shop và phát loa thông báo thành công!`);
+    msg.reply(`🚀 Shop đã xuất hiện trong **15 phút** tại các kênh chỉ định!`);
 
     setTimeout(() => {
         currentSpecialShop = null;
-    }, 5 * 60 * 1000);
+    }, 15 * 60 * 1000);[cite: 1]
 }
+    // --- LỆNH: SỬ DỤNG VẬT PHẨM (:use) ---
+if (msg.content.startsWith(":use")) {
+    const args = msg.content.split(" ");
+    const itemKey = args[1]?.toLowerCase();
 
-// --- LỆNH MUA VẬT PHẨM (RÚT GỌN) ---
-if (msg.content === ":mua") {
-    if (!currentSpecialShop) return msg.reply("❌ Shop Thần Thoại hiện không mở cửa.");
-    
-    // Đảm bảo túi đồ tồn tại cho người chơi
+    // Khởi tạo túi đồ nếu chưa có để tránh lỗi
     if (!u.inventory) u.inventory = { ve_restart: 0, trung_god: 0, hop_bi_an: 0 };
+    if (u.thoc === undefined) u.thoc = 0; 
 
-    if (u.coins < currentSpecialShop.price) {
-        return msg.reply(`❌ Bạn không đủ Xu! Còn thiếu **${(currentSpecialShop.price - u.coins).toLocaleString()} Xu** nữa.`);
+    // Kiểm tra xem vật phẩm có trong kho không
+    if (!itemKey || !u.inventory[itemKey] || u.inventory[itemKey] <= 0) {
+        return msg.reply("❌ Bạn không có vật phẩm này hoặc đã dùng hết!");
     }
 
-    // Trừ tiền và thêm đồ vào kho
-    u.coins -= currentSpecialShop.price;
-    u.inventory[currentSpecialShop.id] = (u.inventory[currentSpecialShop.id] || 0) + 1;
-    
-    await saveData(msg.author.id);
-    
-    return msg.reply(`✅ Giao dịch thành công! Bạn đã sở hữu **${currentSpecialShop.name}**. Hãy gõ \`:khodo\` để xem.`);
+    // --- 1. XỬ LÝ VÉ RESTART ---
+    if (itemKey === "ve_restart") {
+        if (!u.dangAp || u.dangAp.length === 0) {
+            return msg.reply("❌ Máy ấp đang trống, không có trứng để dùng vé!");
+        }
+
+        u.inventory.ve_restart -= 1;
+        u.dangAp.forEach(trung => {
+            trung.finishAt = Date.now(); 
+        });
+
+        await saveData(msg.author.id);
+        return msg.reply("🎟️ **VÉ RESTART KÍCH HOẠT!** Tất cả trứng đang ấp đã sẵn sàng nở. Hãy chat để nhận gà!");
+    }
+
+    // --- 2. XỬ LÝ TRỨNG GOD ---
+    if (itemKey === "trung_god") {
+        u.inventory.trung_god -= 1;
+
+        const godPool = GA_LIST.filter(g => g.rarity.includes("Legendary"));
+        const selectedGa = godPool[Math.floor(Math.random() * godPool.length)];
+
+        const newGa = {
+            ...selectedGa,
+            id: Date.now() + Math.random(),
+            hp: Math.floor(Math.random() * (15000 - 8000 + 1)) + 8000,
+            atk: Math.floor(Math.random() * (1500 - 800 + 1)) + 800,
+            price: Math.floor(Math.random() * (300000 - 100000 + 1)) + 100000,
+            locked: false
+        };
+
+        u.gaCon.push(newGa);
+        await saveData(msg.author.id);
+
+        const godEmbed = new EmbedBuilder()
+            .setTitle("✨ HUYỀN THOẠI XUẤT THẾ ✨")
+            .setDescription(`🥚 Trứng God đã nở ra **${newGa.name}**!\n\n❤️ HP: \`${newGa.hp}\` | 💪 ATK: \`${newGa.atk}\``)
+            .setColor("#f1c40f")
+            .setThumbnail(msg.author.displayAvatarURL());
+
+        return msg.reply({ embeds: [godEmbed] });
+    }
+
+    // --- 3. XỬ LÝ HỘP BÍ ẨN (Chỉ nhận Thóc và Xu) ---
+    if (itemKey === "hop_bi_an") {
+        u.inventory.hop_bi_an -= 1;
+
+        const isThoc = Math.random() < 0.5;
+        let resultText = "";
+
+        if (isThoc) {
+            const thocNhan = Math.floor(Math.random() * (100 - 20 + 1)) + 20; 
+            u.thoc += thocNhan;
+            resultText = `🌾 Bạn nhận được **${thocNhan} Thóc**!`;
+        } else {
+            const xuNhan = Math.floor(Math.random() * (30000 - 5000 + 1)) + 5000; 
+            u.money += xuNhan;
+            resultText = `💰 Bạn nhận được **${xuNhan.toLocaleString()} Xu**!`;
+        }
+
+        await saveData(msg.author.id);
+
+        const boxEmbed = new EmbedBuilder()
+            .setTitle("🎁 KẾT QUẢ MỞ HỘP")
+            .setDescription(resultText)
+            .setColor("#e74c3c")
+            .setFooter({ text: `Số hộp còn lại: ${u.inventory.hop_bi_an}` });
+
+        return msg.reply({ embeds: [boxEmbed] });
+    }
+}
+    // --- LỆNH: KHO ĐỒ (:khodo) ---
+if (msg.content === ":khodo") {
+    // Khởi tạo túi đồ nếu chưa có để tránh lỗi
+    if (!u.inventory) u.inventory = { ve_restart: 0, trung_god: 0, hop_bi_an: 0 };
+
+    const invEmbed = new EmbedBuilder()
+        .setTitle(`🎒 KHO ĐỒ CỦA ${msg.author.username.toUpperCase()}`)
+        .setColor("#3498DB")
+        .setThumbnail(msg.author.displayAvatarURL())
+        .addFields(
+            { 
+                name: "🎟️ Vé Restart", 
+                value: `Số lượng: **${u.inventory.ve_restart || 0}**`, 
+                inline: true 
+            },
+            { 
+                name: "🥚 Trứng God", 
+                value: `Số lượng: **${u.inventory.trung_god || 0}**`, 
+                inline: true 
+            },
+            { 
+                name: "🎁 Hộp Bí Ẩn", 
+                value: `Số lượng: **${u.inventory.hop_bi_an || 0}**`, 
+                inline: true 
+            },
+            { 
+                name: "💰 Số dư Xu", 
+                value: `**${u.money.toLocaleString()} Xu**`, 
+                inline: false 
+            }
+        )
+        .setFooter({ text: "Sử dụng vật phẩm bằng lệnh: :use <tên_vật_phẩm>" })
+        .setTimestamp();
+
+    return msg.reply({ embeds: [invEmbed] });
 }
     // --- TÍNH NĂNG ĐÁ GÀ (PVP) - BẢN TINH CHỈNH ---
 if (msg.content.startsWith(":daga")) {
@@ -1719,29 +1838,36 @@ if (msg.content === ":tronglua") {
     saveData(msg.author.id);
     return msg.reply(`🌱 Bạn đã gieo **${thocGiong} thóc giống**. ⏳ Chờ 30 phút để lúa chín!`);
 }
-// --- HỆ THỐNG MENU HELP (CẬP NHẬT) ---
+// --- HỆ THỐNG MENU HELP (PHIÊN BẢN ĐẾ CHẾ GÀ) ---
 if (msg.content === ":help") {
     const u = getUser(msg.author.id);
+    const botAvatar = client.user.displayAvatarURL(); // Lấy hình đại diện của bot
+
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('help_menu')
-        .setPlaceholder('📂 Chọn danh mục bạn muốn xem...')
+        .setPlaceholder('📂 Khám phá bí kíp luyện gà tại đây...')
         .addOptions([
-            { label: 'Hướng Dẫn Tân Thủ', value: 'basic', emoji: '🔰' },
-            { label: 'Nuôi Dưỡng & Sản Xuất', value: 'feed', emoji: '🌾' },
-            { label: 'Ấp Trứng & Quản Lý', value: 'hatch', emoji: '🥚' },
-            { label: 'Nâng Cấp Công Trình', value: 'upgrade', emoji: '🏗️' },
-            { label: 'Giao Thương', value: 'trade', emoji: '🤝' },
-            { label: 'Sự Kiện World Boss', value: 'world_boss', emoji: '🔥' }, // Tùy chọn mới
-            { label: 'Hoạt Động Ngầm', value: 'steal', emoji: '🕵️' },
+            { label: 'Hướng Dẫn Tân Thủ', value: 'basic', emoji: '🔰', description: 'Cách bắt đầu và nhận hỗ trợ mỗi ngày.' },
+            { label: 'Nuôi Dưỡng & Sản Xuất', value: 'feed', emoji: '🌾', description: 'Trồng lúa, gặt thóc và chăm sóc gà.' },
+            { label: 'Ấp Trứng & Quản Lý', value: 'hatch', emoji: '🥚', description: 'Kỹ thuật ấp trứng và quản lý chuồng.' },
+            { label: 'Vật Phẩm Đặc Biệt', value: 'items', emoji: '🎒', description: 'Cách dùng Vé Restart, Trứng God, Hộp Bí Ẩn.' },
+            { label: 'Nâng Cấp Công Trình', value: 'upgrade', emoji: '🏗️', description: 'Mở rộng quy mô trang trại của bạn.' },
+            { label: 'Giao Thương & Sự Kiện', value: 'social', emoji: '🔥', description: 'Shop, World Boss và hoạt động ngầm.' },
         ]);
 
     const row = new ActionRowBuilder().addComponents(selectMenu);
+    
     const helpEmbed = new EmbedBuilder()
         .setTitle("📒 CUỐN CẨM NANG CHICKEN EMPIRE")
         .setColor("#FFD700")
-        .setDescription("✨ **Chào mừng chủ trang trại!**\nDưới đây là toàn bộ bí kíp để bạn xây dựng đế chế gà của mình.");
+        .setAuthor({ name: "Hệ Thống Hỗ Trợ Trang Trại", iconURL: botAvatar })
+        .setThumbnail(botAvatar)
+        .setDescription("✨ **Chào mừng chủ trang trại!**\nĐế chế gà của bạn mạnh hay yếu đều nằm trong cuốn cẩm nang này.\n\n> *Hãy chọn một danh mục bên dưới để xem chi tiết các lệnh.*")
+        .setFooter({ text: `Yêu cầu bởi: ${msg.author.username}`, iconURL: msg.author.displayAvatarURL() })
+        .setTimestamp();
 
     const response = await msg.reply({ embeds: [helpEmbed], components: [row] });
+    
     const collector = response.createMessageComponentCollector({ 
         componentType: ComponentType.StringSelect, 
         time: 120000 
@@ -1750,48 +1876,48 @@ if (msg.content === ":help") {
     collector.on('collect', async i => {
         if (i.user.id !== msg.author.id) return i.reply({ content: "❌ Bạn không thể điều khiển menu này!", ephemeral: true });
 
-        let title = "", desc = "", color = "#3498DB";
+        let title = "", desc = "", color = "#3498DB", image = "";
+        
         switch (i.values[0]) {
             case 'basic':
                 title = "🚜 DANH MỤC: TÂN THỦ";
-                desc = ">>> 🔰 `:start`: Khởi tạo trang trại.\n💰 `:daily`: Nhận 500 thóc.(mỗi 2 tiếng)\n📊 `:thongtin`: Xem ví tiền.";
+                desc = ">>> 🔰 `:start`: Khởi tạo trang trại.\n💰 `:daily`: Nhận 500 thóc (mỗi 2 tiếng).\n📊 `:thongtin`: Xem hồ sơ và ví tiền.";
+                color = "#5865F2";
                 break;
             case 'feed':
                 title = "🌾 NUÔI DƯỠNG & SẢN XUẤT";
-                desc = ">>> 🥗 `:chogaan`: Cho gà ăn.\n🌱🌱`:tronglua`: Gieo hạt thóc để trồng lúa.\n🌱 `:ruong`: Xem ruộng lúa.\n🌾 `:thuhoach`: Gặt lúa.";
-                color = "#FFA500";
+                desc = ">>> 🥗 `:chogaan`: Dùng thóc nuôi gà lớn.\n🌱 `:tronglua`: Gieo hạt giống xuống ruộng.\n🚜 `:ruong`: Kiểm tra tình trạng lúa chín.\n🌾 `:thuhoach`: Thu hoạch thóc sạch.";
+                color = "#2ECC71";
                 break;
             case 'hatch':
                 title = "🥚 ẤP TRỨNG & QUẢN LÝ";
-                desc = ">>> 🐣 `:aptrung`: Ấp trứng ngẫu nhiên.\n🏡 `:chuonga`: Xem danh sách gà.\n💰 `:selltrung`: Bán trứng kiếm tiền.";
+                desc = ">>> 🐣 `:aptrung`: Đưa trứng vào máy.\n🏡 `:chuonga`: Xem danh sách chiến kê.\n💰 `:selltrung`: Bán bớt trứng lấy xu.";
                 color = "#F1C40F";
+                break;
+            case 'items':
+                title = "🎒 VẬT PHẨM ĐẶC BIỆT";
+                desc = ">>> 🎒 `:khodo`: Kiểm tra túi đồ của bạn.\n🎟️ `:use ve_restart`: Nở toàn bộ trứng ngay lập tức.\n🥚 `:use trung_god`: Nhận ngay một siêu gà Legendary.\n🎁 `:use hop_bi_an`: Mở quà nhận Thóc hoặc Xu.";
+                color = "#9B59B6";
                 break;
             case 'upgrade':
                 title = "🏗️ DANH MỤC: NÂNG CẤP";
-                desc = ">>> 🏗️`:nangcap`: Mở giao diện nâng cấp.\n🏚️ `:upga`: Nâng cấp chuồng.\n🏭 `:upaptrung`: Nâng cấp máy ấp.\n📦 `:upthoc`: Nâng cấp kho thóc.";
-                color = "#95A5A6";
+                desc = ">>> 🏗️ `:nangcap`: Mở menu nâng cấp tổng.\n🏚️ `:upga`: Nâng sức chứa chuồng gà.\n🏭 `:upaptrung`: Nâng cấp tốc độ máy ấp.\n📦 `:upthoc`: Mở rộng kho chứa thóc.";
+                color = "#E67E22";
                 break;
-            case 'trade':
-                title = "🤝 GIAO THƯƠNG: TRAO ĐỔI";
-                desc = ">>> 💰`:shop`: Mua trứng và thóc ở doanh trại khác.\n📦 `:trade @user`: Giao dịch trực tiếp với người chơi.\ncẩn thận bị lừa đảo nhé";
-                color = "#2ECC71";
-                break;
-            case 'world_boss': // Cập nhật nội dung Boss Thế Giới
-                title = "🔥 SỰ KIỆN: WORLD BOSS";
-                desc = ">>> ⚔️ `:attack`: Tấn công Boss khi nó xuất hiện.\n🏆 Boss chết sẽ chia thưởng theo sát thương gây ra.\n📢 Hãy chú ý thông báo từ Admin!";
+            case 'social':
+                title = "🔥 GIAO THƯƠNG & SỰ KIỆN";
+                desc = ">>> 🛒 `:shop`: Mua vật phẩm từ hệ thống.\n🤝 `:trade @user`: Trao đổi với hàng xóm.\n⚔️ `:attack`: Hợp sức diệt World Boss.\n🥷 `:tromga @user`: Lén lút lấy thóc (cẩn thận!).";
                 color = "#E74C3C";
                 break;
-            case 'steal':
-                title = "🕵️ HOẠT ĐỘNG NGẦM";
-                desc = ">>> 🥷 `:tromga @user`: Đi ăn trộm thóc hàng xóm.\n⚠️ Cẩn thận kẻo bị phạt tiền!";
-                color = "#34495E";
-                break;
-            default:
-                title = "Chức năng đang cập nhật";
-                desc = "Vui lòng đợi phiên bản sau!";
         }
 
-        const updateEmbed = new EmbedBuilder().setTitle(title).setDescription(desc).setColor(color);
+        const updateEmbed = new EmbedBuilder()
+            .setTitle(title)
+            .setDescription(desc)
+            .setColor(color)
+            .setAuthor({ name: "Hướng Dẫn Chi Tiết", iconURL: botAvatar })
+            .setThumbnail(botAvatar);
+
         await i.update({ embeds: [updateEmbed] });
     });
 
