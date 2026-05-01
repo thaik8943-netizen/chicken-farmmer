@@ -27,6 +27,7 @@ const client = new Client({
 const { MongoClient } = require('mongodb');
 const uri = process.env.MONGO_URI; // Link Hòa đã dán vào Render
 const clientDB = new MongoClient(uri);
+let currentSpecialShop = null;
 
 let db, usersCol;
 let data = {}; // Giữ biến data để các hàm cũ không bị lỗi ngay lập tức
@@ -124,9 +125,23 @@ function similarity(s1, s2) {
 function getUser(id) {
     if (!data[id]) {
         data[id] = {
-            started: false, thoc: 1000, coins: 500, lvGa: 0, lvNo: 0, lvAp: 0,
-            eatToday: 0, lastEatReset: 0, trung: { thuong: 10, bac: 5, vang: 2 },
-            gaCon: [], dangAp: [], equippedGa: null, lastDaily: 0, lastSteal: 0, lastTrong: 0
+            started: false, 
+            thoc: 1000, 
+            coins: 500, 
+            lvGa: 0, 
+            lvNo: 0, 
+            lvAp: 0,
+            eatToday: 0, 
+            lastEatReset: 0, 
+            trung: { thuong: 10, bac: 0, vang: 0 },
+            gaCon: [], 
+            dangAp: [], 
+            equippedGa: null, 
+            lastDaily: 0, 
+            lastSteal: 0, 
+            lastTrong: 0,
+            // THÊM DÒNG NÀY VÀO ĐÂY:
+            inventory: { ve_restart: 0, trung_god: 0, hop_bi_an: 0 } 
         };
     }
     return data[id];
@@ -456,7 +471,65 @@ if (msg.content.startsWith(":trade")) {
         await i.update({ embeds: [generateEmbed()] });
     });
 }
-// --- TÍNH NĂNG ĐÁ GÀ (PVP) - BẢN TINH CHỈNH ---
+// --- LỆNH: TRIỆU HỒI SHOP & THÔNG BÁO TOÀN CẦU ---
+if (msg.content === ":trieuhoishopthanthoai") {
+    const adminID = "873867371419422742"; 
+    if (msg.author.id !== adminID) return msg.reply("❌ Bạn không có quyền triệu hồi thần linh!");
+
+    const items = [
+        { id: "ve_restart", name: "Vé Restart 🎟️", price: 50000, desc: "Bỏ qua thời gian ấp trứng ngay lập tức." },
+        { id: "trung_god", name: "Trứng God 🥚", price: 200000, desc: "Nở ra 100% gà Legendary." },
+        { id: "hop_bi_an", name: "Hộp Bí Ẩn 🎁", price: 30000, desc: "Mở ra ngẫu nhiên 1,000 - 20,000 Xu/Thóc." }
+    ];
+
+    currentSpecialShop = items[Math.floor(Math.random() * items.length)];
+
+    const announcement = `✨ **SHOP THẦN THOẠI ĐÃ XUẤT HIỆN!** ✨\n\n🛒 Vật phẩm: **${currentSpecialShop.name}**\n💰 Giá: **${currentSpecialShop.price.toLocaleString()} Xu**\n📝 *${currentSpecialShop.desc}*\n\n⏰ Shop chỉ tồn tại trong **5 phút**! Hãy gõ \`:muanhé\` để sở hữu ngay!`;
+
+    let guildCount = 0;
+    client.guilds.cache.forEach(async (guild) => {
+        const channel = guild.channels.cache.find(c => 
+            c.type === 0 && 
+            c.permissionsFor(guild.members.me).has("SendMessages")
+        );
+
+        if (channel) {
+            try {
+                await channel.send(announcement);
+                guildCount++;
+            } catch (e) {
+                console.log(`Lỗi gửi tin đến ${guild.name}`);
+            }
+        }
+    });
+
+    msg.reply(`🚀 Đã triệu hồi shop và phát loa thông báo thành công!`);
+
+    setTimeout(() => {
+        currentSpecialShop = null;
+    }, 5 * 60 * 1000);
+}
+
+// --- LỆNH MUA VẬT PHẨM (RÚT GỌN) ---
+if (msg.content === ":mua") {
+    if (!currentSpecialShop) return msg.reply("❌ Shop Thần Thoại hiện không mở cửa.");
+    
+    // Đảm bảo túi đồ tồn tại cho người chơi
+    if (!u.inventory) u.inventory = { ve_restart: 0, trung_god: 0, hop_bi_an: 0 };
+
+    if (u.coins < currentSpecialShop.price) {
+        return msg.reply(`❌ Bạn không đủ Xu! Còn thiếu **${(currentSpecialShop.price - u.coins).toLocaleString()} Xu** nữa.`);
+    }
+
+    // Trừ tiền và thêm đồ vào kho
+    u.coins -= currentSpecialShop.price;
+    u.inventory[currentSpecialShop.id] = (u.inventory[currentSpecialShop.id] || 0) + 1;
+    
+    await saveData(msg.author.id);
+    
+    return msg.reply(`✅ Giao dịch thành công! Bạn đã sở hữu **${currentSpecialShop.name}**. Hãy gõ \`:khodo\` để xem.`);
+}
+    // --- TÍNH NĂNG ĐÁ GÀ (PVP) - BẢN TINH CHỈNH ---
 if (msg.content.startsWith(":daga")) {
     const p1 = msg.author;
     const p2 = msg.mentions.users.first();
@@ -1208,74 +1281,67 @@ if (msg.content === ":ruong") {
 
     return msg.reply({ embeds: [ruongEmbed] });
 }
-//-----THU HOẠCH LÚA-------------------------
+// --- LỆNH: THU HOẠCH (TỐI ƯU SẢN LƯỢNG THEO RUỘNG) ---
 if (msg.content === ":thuhoach") {
-    const u = data[msg.author.id];
-    if (!u) return;
-
-    // 1. Kiểm tra điều kiện Level ruộng (giống lệnh :ruong)
-    const requiredLv = 4;
-    if ((u.lvGa || 0) < requiredLv) {
-        return msg.reply(`❌ Bạn chưa có ruộng! Cần nâng cấp **:upga** lên **Lv.4** để khai hoang.`);
-    }
+    if (!u.isTrongLua) return msg.reply("❌ Ruộng đang trống, hãy gõ `:tronglua` trước!");
 
     const now = Date.now();
-    const cdTrong = 30 * 60 * 1000; // 30 phút
-    const lastTrong = u.lastTrong || 0;
-    const timePassed = now - lastTrong;
+    const timePassed = now - (u.lastTrong || 0);
+    const timeToRipen = 30 * 60 * 1000;
 
-    // 2. Kiểm tra lúa đã chín chưa
-    if (timePassed < cdTrong) {
-        const remaining = cdTrong - timePassed;
-        return msg.reply(`🌾 Lúa vẫn còn xanh lắm chủ thớt ơi! Chờ thêm **${formatTime(remaining)}** nữa mới gặt được.`);
+    if (timePassed < timeToRipen) {
+        const remaining = Math.ceil((timeToRipen - timePassed) / (60 * 1000));
+        return msg.reply(`⏳ Lúa chưa chín! Còn khoảng **${remaining} phút** nữa.`);
     }
 
-    // 3. Tính toán sản lượng theo công thức của bạn: 500 + (Lv * 200)
-    // Random một chút để tăng tính hấp dẫn (ví dụ: từ 80% đến 100% sản lượng tối đa)
-    const maxThocPotential = 500 + ((u.lvNo || 0) * 200);
-    const thocNhanDuoc = Math.floor(maxThocPotential * (0.8 + Math.random() * 0.2));
-
-    // 4. Cập nhật dữ liệu
-    u.thoc = (u.thoc || 0) + thocNhanDuoc;
-    u.lastTrong = now; // Reset thời gian về lúc vừa gặt (bắt đầu vụ mới ngay lập tức)
-    saveData(msg.author.id);
-
-    // 5. Phản hồi người chơi
-    const thuHoachEmbed = new EmbedBuilder()
-        .setTitle("🎊 MÙA MÀNG BỘI THU!")
-        .setColor("#2ECC71")
-        .setDescription(
-            `🌾 Bạn vừa gặt xong một vụ lúa chất lượng!\n` +
-            `💰 Sản lượng thu về: **+${thocNhanDuoc.toLocaleString()} Thóc**\n` +
-            `🚜 Ruộng đã được làm đất và gieo mầm vụ mới tự động.`
-        )
-        .setFooter({ text: `Tổng thóc hiện có: ${u.thoc.toLocaleString()} 🌾` });
-
-    return msg.reply({ embeds: [thuHoachEmbed] });
-}
-// --- LỆNH: TRỒNG LÚA ---
-// --- LỆNH: TRỒNG LÚA (CẬP NHẬT THEO GIỚI HẠN RUỘNG) ---
-if (msg.content === ":tronglua") {
-    const requiredLv = 4;
-    if ((u.lvGa || 0) < requiredLv) return msg.reply("❌ Cần :upga Lv.4 để trồng lúa!");
-
-    const now = Date.now();
-    const cdTrong = 30 * 60 * 1000;
-    if (now - (u.lastTrong || 0) < cdTrong) {
-        return msg.reply(`⏳ Lúa chưa chín! Gõ \`:ruong\` để xem tiến độ.`);
-    }
-
-    // Sản lượng dựa trên giới hạn ruộng
+    // Giới hạn ruộng quy định sản lượng tối đa
     const maxThocPerVụ = 500 + ((u.lvNo || 0) * 200);
-    const minThocPerVụ = Math.floor(maxThocPerVụ * 0.5); // Tối thiểu 50% sản lượng tối đa
     
-    const thuHoach = Math.floor(Math.random() * (maxThocPerVụ - minThocPerVụ + 1)) + minThocPerVụ;
+    // Sản lượng thu hoạch ngẫu nhiên từ 70% đến 100% giới hạn ruộng
+    // Đảm bảo con số này luôn lớn hơn số thóc giống đã bỏ ra
+    const minThuHoach = Math.max(Math.floor(maxThocPerVụ * 0.7), (u.thocGiongDaDung || 0) * 2); 
+    
+    const thuHoach = Math.floor(Math.random() * (maxThocPerVụ - minThuHoach + 1)) + minThuHoach;
+    const loiNhuan = thuHoach - (u.thocGiongDaDung || 0);
 
     u.thoc += thuHoach;
-    u.lastTrong = now;
+    u.isTrongLua = false;
+    u.thocGiongDaDung = 0;
+    
     saveData(msg.author.id);
 
-    return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
+    return msg.reply(`🌾 **Thu hoạch thành công!**\n📦 Nhận được: **${thuHoach.toLocaleString()} thóc**\n📈 Lợi nhuận vụ này: **+${loiNhuan.toLocaleString()} thóc**.`);
+}
+// --- LỆNH: TRỒNG LÚA (DỰA TRÊN GIỚI HẠN RUỘNG) ---
+if (msg.content === ":tronglua") {
+    const requiredLv = 4;
+    if ((u.lvGa || 0) < requiredLv) return msg.reply("❌ Cần :upga Lv.4 để bắt đầu canh tác!");
+
+    if (u.isTrongLua) {
+        return msg.reply("🌾 Ruộng đang có lúa rồi! Hãy đợi chín và gõ `:thuhoach`.");
+    }
+
+    // Giới hạn sản lượng tối đa của ruộng hiện tại
+    const maxRuong = 500 + ((u.lvNo || 0) * 200);
+    
+    // Thóc giống cần bỏ ra ngẫu nhiên (Ví dụ: 10% - 20% giới hạn ruộng)
+    const minGiong = Math.floor(maxRuong * 0.1);
+    const maxGiong = Math.floor(maxRuong * 0.2);
+    const thocGiong = Math.floor(Math.random() * (maxGiong - minGiong + 1)) + minGiong;
+
+    if (u.thoc < thocGiong) {
+        return msg.reply(`❌ Bạn không đủ thóc giống! Vụ này cần **${thocGiong} thóc** (Dựa trên quy mô ruộng của bạn).`);
+    }
+
+    // Trừ thóc giống và bắt đầu trồng
+    u.thoc -= thocGiong;
+    u.lastTrong = Date.now();
+    u.isTrongLua = true;
+    u.thocGiongDaDung = thocGiong; // Lưu lại để tính lời
+    
+    saveData(msg.author.id);
+
+    return msg.reply(`🌱 Bạn đã gieo **${thocGiong} thóc giống** vào ruộng (Quy mô: ${maxRuong}).\n⏳ Chờ 30 phút nữa để lúa chín nhé!`);
 }
 // --- HỆ THỐNG MENU HELP (CẬP NHẬT) ---
 if (msg.content === ":help") {
@@ -1311,11 +1377,11 @@ if (msg.content === ":help") {
         switch (i.values[0]) {
             case 'basic':
                 title = "🚜 DANH MỤC: TÂN THỦ";
-                desc = ">>> 🔰 `:start`: Khởi tạo trang trại.\n💰 `:daily`: Nhận 500 thóc.\n📊 `:thongtin`: Xem ví tiền.";
+                desc = ">>> 🔰 `:start`: Khởi tạo trang trại.\n💰 `:daily`: Nhận 500 thóc.(mỗi 2 tiếng)\n📊 `:thongtin`: Xem ví tiền.";
                 break;
             case 'feed':
                 title = "🌾 NUÔI DƯỠNG & SẢN XUẤT";
-                desc = ">>> 🥗 `:chogaan`: Cho gà ăn.\n🌱 `:ruong`: Xem ruộng lúa.\n🌾 `:thuhoach`: Gặt lúa.";
+                desc = ">>> 🥗 `:chogaan`: Cho gà ăn.\n🌱🌱`:tronglua`: Gieo hạt thóc để trồng lúa.\n🌱 `:ruong`: Xem ruộng lúa.\n🌾 `:thuhoach`: Gặt lúa.";
                 color = "#FFA500";
                 break;
             case 'hatch':
