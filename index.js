@@ -1482,11 +1482,20 @@ client.on('interactionCreate', async interaction => {
     if (!interaction.isButton()) return;
 
     if (interaction.customId === 'boss_attack') {
-        if (!worldBoss || !worldBoss.isActive) return interaction.reply({ content: "🏟️ Trận đấu đã kết thúc!", ephemeral: true });
+        // 1. Phản hồi ngay lập tức để tránh lỗi 3 giây
+        if (!worldBoss || !worldBoss.isActive) {
+            return interaction.reply({ content: "🏟️ Trận đấu đã kết thúc!", ephemeral: true });
+        }
 
         const u = data[interaction.user.id];
-        if (!u || !u.equippedGa) return interaction.reply({ content: "❌ Bạn chưa trang bị gà chiến! Dùng `:equip` đi.", ephemeral: true });
+        if (!u || !u.equippedGa) {
+            return interaction.reply({ content: "❌ Bạn chưa trang bị gà!", ephemeral: true });
+        }
 
+        // Dùng deferUpdate để "giữ chỗ", tránh lỗi "Tương tác thất bại"
+        await interaction.deferUpdate(); 
+
+        // 2. Tính toán sát thương
         const damage = u.equippedGa.atk || 120;
         const crit = Math.random() < 0.15 ? 2 : 1; 
         const finalDamage = damage * crit;
@@ -1494,24 +1503,35 @@ client.on('interactionCreate', async interaction => {
         worldBoss.hp -= finalDamage;
         worldBoss.contributors[interaction.user.id] = (worldBoss.contributors[interaction.user.id] || 0) + finalDamage;
 
-        await interaction.reply({ 
-            content: `${crit > 1 ? '🔥 **BẠO KÍCH!**' : '⚔️'} Gà **${u.equippedGa.name}** đã gây **${finalDamage.toLocaleString()}** sát thương lên Boss!`, 
+        // Gửi thông báo ẩn cho người chơi (Vì đã deferUpdate nên dùng followUp)
+        await interaction.followUp({ 
+            content: `${crit > 1 ? '🔥 **BẠO KÍCH!**' : '⚔️'} Gà **${u.equippedGa.name}** gây **${finalDamage.toLocaleString()}** sát thương!`, 
             ephemeral: true 
         });
 
-        // Cập nhật máu Boss (Cứ 4 lượt đánh cập nhật 1 lần để mượt và tránh lag)
-        if (Object.values(worldBoss.contributors).length % 4 === 0) {
-            const updatedEmbed = EmbedBuilder.from(worldBoss.messages[0].embeds[0])
-                .setDescription(
-                    `> *Vết nứt không gian đã mở, thực thể huyền thoại xuất hiện!* \n\n` +
-                    `⚔️ **Thực thể:** \`${worldBoss.name}\`\n` +
-                    `🩸 **Sinh lực:** \`${Math.max(0, worldBoss.hp).toLocaleString()} / ${worldBoss.maxHp.toLocaleString()}\` HP\n` +
-                    `**[${"🛑".repeat(Math.max(0, Math.round((worldBoss.hp / worldBoss.maxHp) * 15)))}${"🌑".repeat(15 - Math.max(0, Math.round((worldBoss.hp / worldBoss.maxHp) * 15)))}]**`
-                );
-            for (const m of worldBoss.messages) { try { await m.edit({ embeds: [updatedEmbed] }); } catch (e) {} }
+        // 3. Cập nhật máu Boss (Chỉ cập nhật mỗi 5-10 lượt để tránh Rate Limit)
+        const totalHits = Object.values(worldBoss.contributors).length;
+        if (totalHits % 5 === 0 || worldBoss.hp <= 0) {
+            updateGlobalBossDisplay(); // Tách hàm riêng để xử lý bất đồng bộ
         }
+    }
+});
 
-        // KHI BOSS BỊ TIÊU DIỆT
+// Hàm cập nhật tin nhắn toàn cầu (Chạy ngầm, không chặn luồng chính)
+async function updateGlobalBossDisplay() {
+    if (!worldBoss) return;
+
+    const updatedEmbed = EmbedBuilder.from(worldBoss.messages[0].embeds[0])
+        .setDescription(
+            `> *Vết nứt không gian đã mở!* \n\n` +
+            `⚔️ **Thực thể:** \`${worldBoss.name}\`\n` +
+            `🩸 **Sinh lực:** \`${Math.max(0, worldBoss.hp).toLocaleString()} / ${worldBoss.maxHp.toLocaleString()}\` HP\n` +
+            `**[${getProgressBar(worldBoss.hp, worldBoss.maxHp)}]**`
+        );
+
+    // Sử dụng Promise.allSettled để edit nhanh hơn và không dừng lại nếu 1 tin nhắn lỗi
+    await Promise.allSettled(worldBoss.messages.map(m => m.edit({ embeds: [updatedEmbed] }).catch(() => null)));
+// KHI BOSS BỊ TIÊU DIỆT
         if (worldBoss.hp <= 0 && worldBoss.isActive) {
             worldBoss.isActive = false;
             const sorted = Object.entries(worldBoss.contributors).sort(([,a],[,b]) => b - a);
