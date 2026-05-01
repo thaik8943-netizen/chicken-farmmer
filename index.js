@@ -69,7 +69,7 @@ async function connectDB() {
 }
 connectDB();
 client.on('error', (err) => {
-   console.error('Lỗi WebSocket nè Hòa ơi:', err.message);
+   console.error('Lỗi WebSocket nè:', err.message);
 });
 // --- SỰ KIỆN: TỰ CẤP ROLE KHI CÓ THÀNH VIÊN MỚI VÀO SERVER ---
 client.on("guildMemberAdd", async (member) => {
