@@ -3,6 +3,7 @@ http.createServer((req, res) => {
   res.write("Gà đang online!");
   res.end();
 }).listen(8080);
+
 require('dotenv').config();
 const { 
     Client, 
@@ -22,12 +23,32 @@ const client = new Client({
     partials: [Partials.Message, Partials.Channel, Partials.Reaction]
 });
 
+// ================= DATABASE & UTILS (Đưa lên trước để các hàm khác sử dụng) =================
+const DATA_FILE = './data.json';
+let data = {};
+if (fs.existsSync(DATA_FILE)) { 
+    try { data = JSON.parse(fs.readFileSync(DATA_FILE)); } catch (e) { data = {}; } 
+}
+function saveData() { fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2)); }
+
+function getUser(id) {
+    if (!data[id]) {
+        data[id] = {
+            started: false, thoc: 1000, coins: 500, lvGa: 0, lvNo: 0, lvAp: 0,
+            eatToday: 0, lastEatReset: 0, trung: { thuong: 10, bac: 5, vang: 2 },
+            gaCon: [], dangAp: [], equipped: null, lastDaily: 0, lastSteal: 0, lastTrong: 0
+        };
+    }
+    return data[id];
+}
+
 // ================= CƠ SỞ DỮ LIỆU GÀ =================
 const PREFIX = ["Thần", "Thánh", "Cổ", "Vương", "Đế", "Huyền", "Linh", "Ma", "Quỷ", "Phật", "Tiên", "Thú", "Chiến", "Sát", "Hộ", "Pháp", "Long", "Phượng", "Kỳ", "Lân", "Hỏa", "Băng", "Lôi", "Phong", "Thổ"];
 const MID = ["Ánh_Sáng", "Bóng_Tối", "Hỏa_Ngục", "Băng_Giá", "Sấm_Sét", "Cuồng_Phong", "Kim_Cương", "Vàng_Ròng", "Đá_Quý", "Vô_Cực", "Hư_Không", "Tử_Vong", "Sự_Sống", "Hỗn_Mang", "Thanh_Khiết", "Tàn_Bạo", "Dũng_Mãnh", "Nhanh_Nhẹn", "Trường_Sinh", "Bất_Diệt"];
 const SUFFIX = ["Kê", "Gà", "Điểu", "Quái", "Thần", "Tướng", "Sĩ", "Binh", "Chủ", "Hậu", "Hoàng", "Vương", "Lão", "Phu", "Sư", "Tổ", "Tộc", "Long", "Lân", "Quy"];
-const u = data[msg.author.id];
-if (!u) return; // Bảo vệ nếu người dùng chưa có dữ liệu
+
+// Đã xóa bỏ biến u lỗi ở đây
+
 function getChickenPrice(rarity) {
     const r = rarity.toLowerCase();
     if (r.includes("legendary")) return Math.floor(Math.random() * (300 - 200 + 1)) + 200;
@@ -50,6 +71,8 @@ for (let p of PREFIX) {
         }
     }
 }
+
+// ... (Tiếp tục các hàm formatTime, getHint và sự kiện messageCreate bên dưới)
 // ================= DATABASE & UTILS =================
 const DATA_FILE = './data.json';
 let data = {};
@@ -1169,7 +1192,7 @@ if (msg.content === ":tronglua") {
 
     return msg.reply(`🌾 **Trúng mùa!** Bạn đã thu hoạch được **${thuHoach.toLocaleString()} thóc**.\n(Giới hạn ruộng hiện tại: ${maxThocPerVụ})`);
 }
-// --- HỆ THỐNG MENU HELP (Đã kiểm tra ngoặc) ---
+// --- HỆ THỐNG MENU HELP ---
 if (msg.content === ":help") {
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('help_menu')
@@ -1187,10 +1210,7 @@ if (msg.content === ":help") {
     const helpEmbed = new EmbedBuilder()
         .setTitle("📒 CUỐN CẨM NANG CHICKEN EMPIRE")
         .setColor("#FFD700")
-        .setThumbnail(client.user.displayAvatarURL())
-        .setDescription("✨ **Chào mừng chủ trang trại!**\nDưới đây là toàn bộ bí kíp để bạn xây dựng đế chế gà của mình.")
-        .addFields({ name: '🚀 Lối tắt nhanh', value: '`:start` • `:thongtin` • `:chuonga` • `:ruong` • `:nangcap`' })
-        .setFooter({ text: `Yêu cầu bởi ${msg.author.username}` });
+        .setDescription("✨ **Chào mừng chủ trang trại!**\nDưới đây là toàn bộ bí kíp để bạn xây dựng đế chế gà của mình.");
 
     const response = await msg.reply({ embeds: [helpEmbed], components: [row] });
     const collector = response.createMessageComponentCollector({ 
@@ -1200,9 +1220,7 @@ if (msg.content === ":help") {
 
     collector.on('collect', async i => {
         if (i.user.id !== msg.author.id) return i.reply({ content: "❌!", ephemeral: true });
-        // ... (Các case switch của bạn)
-        await i.update({ embeds: [updateEmbed] });
-    });
+
         let title = "", desc = "", color = "#3498DB";
         switch (i.values[0]) {
             case 'basic':
@@ -1219,21 +1237,19 @@ if (msg.content === ":help") {
                 desc = ">>> 🏚️ `:upga`: Nâng cấp chuồng.\n🏭 `:upaptrung`: Nâng cấp máy ấp.\n📦 `:upthoc`: Nâng cấp kho thóc.";
                 color = "#95A5A6";
                 break;
-            // Các case khác bạn tự bổ sung tương tự...
+            default:
+                title = "Chức năng đang cập nhật";
+                desc = "Vui lòng đợi phiên bản sau!";
         }
 
-        const updateEmbed = new EmbedBuilder()
-            .setTitle(title)
-            .setDescription(desc)
-            .setColor(color);
-
+        const updateEmbed = new EmbedBuilder().setTitle(title).setDescription(desc).setColor(color);
         await i.update({ embeds: [updateEmbed] });
     });
 
     collector.on('end', () => {
         response.edit({ components: [] }).catch(() => {});
     });
-} // <--- Đóng lệnh if (:help)
+} // Đóng lệnh help
 
 }); // <--- CHỈ CÓ MỘT DẤU NÀY ĐỂ ĐÓNG client.on('messageCreate')
 // HÀM TIỆN ÍCH (Đặt ngoài messageCreate)
