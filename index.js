@@ -1441,7 +1441,7 @@ const sendGlobalBoss = async () => {
                     components: [bossRow] 
                 });
                 
-                worldBoss.messages.push(m);[cite: 1]
+                worldBoss.messages.push(m);
 
                 // Tăng thời gian nghỉ một chút vì số lượng kênh sẽ rất lớn
                 await new Promise(r => setTimeout(r, 800)); 
