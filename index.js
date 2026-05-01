@@ -28,6 +28,7 @@ const { MongoClient } = require('mongodb');
 const uri = process.env.MONGO_URI; // Link Hòa đã dán vào Render
 const clientDB = new MongoClient(uri);
 const BOSS_IMAGE = "https://gamek.vn/anime-ga-chien-dang-tro-thanh-hien-tuong-nho-cot-truyen-bao-thu-cuc-gat-178260325160608042.chn"; // Hoặc link ảnh Boss bạn muốn
+const DATA_FILE = './data.json';
 let currentSpecialShop = null;
 
 let db, usersCol;
@@ -1634,7 +1635,6 @@ if (msg.content === ":ruong") {
 // --- LỆNH: THU HOẠCH (TỐI ƯU SẢN LƯỢNG THEO RUỘNG) ---
 if (msg.content === ":thuhoach") {
     if (!u.isTrongLua) return msg.reply("❌ Ruộng đang trống, hãy gõ `:tronglua` trước!");
-
     const now = Date.now();
     const timePassed = now - (u.lastTrong || 0);
     const timeToRipen = 30 * 60 * 1000;
