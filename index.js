@@ -701,6 +701,7 @@ if (msg.content.startsWith(":buy")) {
     saveData();
     return msg.reply(`✅ Giao dịch thành công!\n🛒 Bạn đã mua: **${quantity}x ${itemName}**\n💰 Tổng chi: **${totalCost.toLocaleString()} Coins**.`);
 }
+
 //---ẤP TRỨNG----------
 if (msg.content.startsWith(":aptrung")) {
     const args = msg.content.split(" ");
@@ -745,6 +746,7 @@ if (msg.content.startsWith(":aptrung")) {
     saveData();
     return msg.reply(`🥚 Đã bỏ **${a}** quả trứng **${t}** vào máy.\n⏱️ Thời gian chờ: **${formatTime(tm[t])}**.\n⚠️ *Lưu ý: Bạn không thể ấp thêm cho đến khi đợt này nở xong!*`);
 }
+
 //----BÁN GÀ-----------
 // --- LỆNH: BÁN GÀ (CẬP NHẬT: KHÔNG BÁN GÀ KHÓA) ---
 if (msg.content.startsWith(":sellga")) {
@@ -796,6 +798,7 @@ if (msg.content === ":daily") {
 if (now - u.lastDaily < 7200000) return msg.reply("⏳ Chờ 2h!");
 u.thoc += 500; u.lastDaily = now; saveData(); msg.reply("🌾 +500 Thóc!");
 }
+
 // --- LỆNH: KHÓA/MỞ KHÓA GÀ ---
 if (msg.content.startsWith(":lockga") || msg.content.startsWith(":unlockga")) {
     const isLock = msg.content.startsWith(":lockga");
@@ -940,7 +943,7 @@ if (msg.content === ":chuonga") {
         return msg.channel.send(winnerMsg);
     }
     return msg.reply(`⚔️ Bạn gây **${damage}** sát thương! Boss còn **${worldBoss.hp}/${worldBoss.maxHp}** HP.`);
-}
+    }
 // --- LỆNH: BÁN TRỨNG ---
 if (msg.content.startsWith(":selltrung")) {
     const u = data[msg.author.id]; 
@@ -961,7 +964,6 @@ if (msg.content.startsWith(":selltrung")) {
     saveData();
     return msg.reply(`💰 Bạn đã bán **${sl} trứng ${loai}** và thu về **${tienThu.toLocaleString()} Coins**!`);
 }
-
 // --- LỆNH: KIỂM TRA RUỘNG LÚA (Đã sửa lỗi khai báo u) ---
 if (msg.content === ":ruong") {
     const u = data[msg.author.id]; // Khai báo u
@@ -1124,8 +1126,8 @@ if (msg.content === ":help") {
     collector.on('end', () => {
         response.edit({ components: [] }).catch(() => {});
     });
-} // Đóng lệnh help
- // HÀM TIỆN ÍCH (Đặt ngoài messageCreate)
+}
+}); 
 function getSimilarity(str1, str2) {
     const s1 = str1.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
     const s2 = str2.toLowerCase().replace(/_/g, " ").replace(/\s+/g, "");
