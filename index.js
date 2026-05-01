@@ -1425,29 +1425,35 @@ if (msg.content.startsWith(":spawnboss")) {
         new ButtonBuilder().setCustomId('boss_status').setLabel('📊 XẾP HẠNG').setStyle(ButtonStyle.Secondary)
     );
 
-    // 4. HÀM GỬI TIN NHẮN TOÀN CẦU (FIX RATE LIMIT)
-    const sendGlobalBoss = async () => {
-        for (const [guildId, guild] of client.guilds.cache) {
-            const channel = guild.systemChannel || 
-                            guild.channels.cache.find(ch => ch.name.includes("thông-báo") && ch.type === 0) ||
-                            guild.channels.cache.find(ch => ch.type === 0 && ch.permissionsFor(guild.members.me).has(["SendMessages", "ViewChannel"]));
+    // 4. HÀM GỬI TIN NHẮN TOÀN TẤT CẢ KÊNH (FIX RATE LIMIT)
+const sendGlobalBoss = async () => {
+    for (const [guildId, guild] of client.guilds.cache) {
+        // Lọc ra tất cả các kênh văn bản (type === 0) mà bot có quyền xem và gửi tin nhắn
+        const textChannels = guild.channels.cache.filter(ch => 
+            ch.type === 0 && 
+            ch.permissionsFor(guild.members.me).has(["SendMessages", "ViewChannel"])
+        );
 
-            if (channel) {
-                try {
-                    const m = await channel.send({ 
-                        content: "🔔 **LOA LOA LOA! ĐẠI CHIẾN GÀ RỪNG ĐÃ KHAI MỞ TOÀN CẦU!**", 
-                        embeds: [createBossEmbed()], 
-                        components: [bossRow] 
-                    });
-                    worldBoss.messages.push(m);
-                    await new Promise(r => setTimeout(r, 600)); // Nghỉ 0.6s giữa các server
-                } catch (err) { console.log(`Lỗi server ${guild.name}: ${err.message}`); }
+        for (const [channelId, channel] of textChannels) {
+            try {
+                const m = await channel.send({ 
+                    content: "🔔 **LOA LOA LOA! ĐẠI CHIẾN GÀ RỪNG ĐÃ KHAI MỞ TOÀN CẦU!**", 
+                    embeds: [createBossEmbed()], 
+                    components: [bossRow] 
+                });
+                
+                worldBoss.messages.push(m);[cite: 1]
+
+                // Tăng thời gian nghỉ một chút vì số lượng kênh sẽ rất lớn
+                await new Promise(r => setTimeout(r, 800)); 
+            } catch (err) { 
+                console.log(`Lỗi gửi tại kênh ${channel.name} - ${guild.name}: ${err.message}`); 
             }
         }
-    };
+    }
+};
 
-    sendGlobalBoss();
-
+sendGlobalBoss();
     // 5. XỬ LÝ KHI HẾT GIỜ (BOSS CHẠY THOÁT)
     setTimeout(async () => {
         if (worldBoss && worldBoss.isActive) {
