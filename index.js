@@ -1740,17 +1740,17 @@ if (msg.content === ":help") {
                 break;
             case 'upgrade':
                 title = "🏗️ DANH MỤC: NÂNG CẤP";
-                desc = ">>> 🏚️ `:upga`: Nâng cấp chuồng.\n🏭 `:upaptrung`: Nâng cấp máy ấp.\n📦 `:upthoc`: Nâng cấp kho thóc.";
+                desc = ">>>🏗️`:nangcap`: Mở giao diện nâng cấp.\n🏚️ `:upga`: Nâng cấp chuồng.\n🏭 `:upaptrung`: Nâng cấp máy ấp.\n📦 `:upthoc`: Nâng cấp kho thóc.";
                 color = "#95A5A6";
                 break;
             case 'trade':
                 title = "🤝 GIAO THƯƠNG: TRAO ĐỔI";
-                desc = ">>> 📦 `:trade`: Giao dịch trực tiếp với người chơi.\ncẩn thận bị lừa đảo nhé";
+                desc = ">>> 💰`:shop`: Mua trứng và thóc ở doanh trại khác.\n📦 `:trade`: Giao dịch trực tiếp với người chơi.\ncẩn thận bị lừa đảo nhé";
                 color = "#2ECC71";
                 break;
             case 'world_boss': // Cập nhật nội dung Boss Thế Giới
                 title = "🔥 SỰ KIỆN: WORLD BOSS";
-                desc = ">>> ⚔️ `:attack`: Tấn công Boss khi nó xuất hiện.\n🏆 Boss chết sẽ chia thưởng theo sát thương gây ra.\n📢 Hãy chú ý thông báo từ Admin!";
+                desc = ">>> ⚔️ `:attack`: Tấn công Boss khi nó xuất hiện.\n🏆 Boss chết sẽ chia thưởng theo sát thương gây ra.\n**📢 Hãy chú ý thông báo từ Admin!**";
                 color = "#E74C3C";
                 break;
             case 'steal':
