@@ -74,7 +74,28 @@ async function saveData(userId) {
         { upsert: true }
     );
 }
+function cleanText(str) {
+    return str.toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // Bỏ dấu
+        .replace(/\s+/g, ""); // Bỏ hết khoảng cách
+}
 
+// Hàm tính độ tương đồng (Dice's Coefficient - đơn giản và hiệu quả hơn cho tên ngắn)
+function similarity(s1, s2) {
+    let longer = s1.length < s2.length ? s2 : s1;
+    let shorter = s1.length < s2.length ? s1 : s2;
+    if (longer.length === 0) return 1.0;
+    
+    // Nếu chuỗi này nằm trong chuỗi kia (ví dụ gõ "chien" trong "chien than")
+    if (longer.includes(shorter)) return 0.85; 
+
+    // Thuật toán so khớp cơ bản
+    let count = 0;
+    for (let char of shorter) {
+        if (longer.includes(char)) count++;
+    }
+    return count / longer.length;
+}
 function getUser(id) {
     if (!data[id]) {
         data[id] = {
@@ -810,49 +831,51 @@ if (msg.content.startsWith(":aptrung")) {
 }
 
 //----BÁN GÀ-----------
-// --- LỆNH: BÁN GÀ (CẬP NHẬT: KHÔNG BÁN GÀ KHÓA) ---
+// --- TRONG LỆNH :SELLGA ---
 if (msg.content.startsWith(":sellga")) {
+    const u = data[msg.author.id];
     const args = msg.content.split(" ");
-    const targetRarity = args[1]?.toLowerCase();
-    
+    const rawInput = args.slice(1).join(" ");
+    if (!rawInput) return msg.reply("❌ Nhập tên hoặc hệ gà muốn bán!");
+
+    const inputClean = cleanText(rawInput);
     const validRarities = ["common", "rare", "epic", "legendary"];
-    if (!targetRarity || !validRarities.includes(targetRarity)) {
-        return msg.reply("❌ Cú pháp: `:sellga <common/rare/epic/legendary>`");
-    }
 
-    // 1. Tìm tất cả gà thuộc hệ đó
-    const allOfRarity = u.gaCon.filter(g => g.rarity.toLowerCase().includes(targetRarity));
+    // 1. Tìm gà dựa trên độ giống nhau > 80% hoặc khớp hệ
+    const allMatches = u.gaCon.filter(g => {
+        const rarityClean = cleanText(g.rarity);
+        const nameClean = cleanText(g.name);
 
-    if (allOfRarity.length === 0) {
-        return msg.reply(`❌ Bạn không có con gà nào thuộc hệ **${targetRarity}**.`);
-    }
+        // Kiểm tra xem có khớp hệ chính xác không
+        if (validRarities.includes(inputClean) && rarityClean === inputClean) return true;
 
-    // 2. Lọc ra những con KHÔNG bị khóa (để bán) và những con BỊ khóa (để giữ)
-    const canSell = allOfRarity.filter(g => !g.locked);
-    const lockedCount = allOfRarity.filter(g => g.locked).length;
-
-    // 3. Nếu không có con nào bán được do tất cả đã bị khóa
-    if (canSell.length === 0) {
-        return msg.reply(`🛡️ Không thể bán! Tất cả **${lockedCount}** con gà hệ **${targetRarity}** của bạn hiện đang được **KHÓA**. Hãy dùng \`:unlockga ${targetRarity}\` nếu muốn bán.`);
-    }
-
-    // 4. Tính tổng tiền từ những con bán được (dùng giá cố định lưu trong gà)
-    let totalMoney = canSell.reduce((sum, g) => sum + (g.price || 10), 0);
-
-    // 5. Cập nhật dữ liệu: Giữ lại những con gà không thuộc hệ này HOẶC những con bị khóa thuộc hệ này
-    u.gaCon = u.gaCon.filter(g => {
-        const isTargetRarity = g.rarity.toLowerCase().includes(targetRarity);
-        return !isTargetRarity || g.locked; 
+        // Kiểm tra độ giống nhau của tên (> 80%)
+        return similarity(nameClean, inputClean) >= 0.8;
     });
 
+    if (allMatches.length === 0) {
+        return msg.reply(`❌ Không tìm thấy gà nào giống với "**${rawInput}**" tầm 80%.`);
+    }
+
+    // 2. Lọc gà bị khóa
+    const canSell = allMatches.filter(g => !g.locked);
+    const lockedCount = allMatches.filter(g => g.locked).length;
+
+    if (canSell.length === 0) {
+        return msg.reply(`🛡️ Tất cả gà khớp với "**${rawInput}**" đều đang bị **KHÓA**.`);
+    }
+
+    // 3. Tính tiền và cập nhật
+    let totalMoney = canSell.reduce((sum, g) => sum + (g.price || 10), 0);
+    const canSellIds = canSell.map(g => g.id);
+
+    u.gaCon = u.gaCon.filter(g => !canSellIds.includes(g.id));
     u.coins += totalMoney;
     saveData(msg.author.id);
 
-    // 6. Thông báo kết quả
-    let response = `💰 Đã bán thành công **${canSell.length}** gà hệ **${targetRarity}**.\n✅ Thu về: **${totalMoney.toLocaleString()} Xu**.`;
-    if (lockedCount > 0) {
-        response += `\n⚠️ Lưu ý: Đã giữ lại **${lockedCount}** con gà đang khóa.`;
-    }
+    // 4. Thông báo
+    let response = `💰 Đã bán **${canSell.length}** con gà gần giống với "**${rawInput}**".\n✅ Thu về: **${totalMoney.toLocaleString()} Xu**.`;
+    if (lockedCount > 0) response += `\n⚠️ Đã giữ lại **${lockedCount}** con đang khóa.`;
 
     return msg.reply(response);
 }
