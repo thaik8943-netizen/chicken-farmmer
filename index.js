@@ -1774,7 +1774,7 @@ if (msg.content === ":tronglua") {
 // --- HỆ THỐNG MENU HELP (PHIÊN BẢN ĐẾ CHẾ GÀ) ---
 if (msg.content === ":help") {
     const u = getUser(msg.author.id);
-    const botAvatar = client.user.displayAvatarURL(); // Lấy hình đại diện của bot
+    const botAvatar = client.user?.displayAvatarURL({ dynamic: true, size: 512 }) || msg.guild.iconURL(); // Lấy hình đại diện của bot
 
     const selectMenu = new StringSelectMenuBuilder()
         .setCustomId('help_menu')
