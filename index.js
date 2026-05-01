@@ -717,39 +717,55 @@ if (msg.content.startsWith(":equip")) {
     }
 // --- TRỘM GÀ BẺ KHÓA (CẬP NHẬT TÍNH CẢ GÀ KHÓA) ---
 // --- TRỘM GÀ BẺ KHÓA (CÓ BIẾN CHỜ 2 TIẾNG) ---
+// --- TRỘM GÀ BẺ KHÓA (CẬP NHẬT HIỂN THỊ KẾT QUẢ KHI THUA) ---
 if (msg.content.startsWith(":tromga")) {
     const target = msg.mentions.users.first();
     if (!target || target.id === msg.author.id) return msg.reply("❌ Hãy tag người bạn muốn trộm!");
 
-    const enemy = getUser(target.id); //
-    const now = Date.now(); //
-    
-    // Thiết lập thời gian chờ: 2 tiếng = 2 * 60 * 60 * 1000 miligiây
+    const enemy = getUser(target.id);
+    const now = Date.now();
     const cooldownTime = 2 * 60 * 60 * 1000; 
 
-    // Kiểm tra xem đã đủ 2 tiếng "trốn trong nhà" chưa
     if (u.lastSteal && now - u.lastSteal < cooldownTime) {
         const remaining = cooldownTime - (now - u.lastSteal);
-        return msg.reply(`⏳ Bạn đang bị truy nã! Hãy trốn trong nhà thêm **${formatTime(remaining)}** nữa mới dám ra đường trộm tiếp.`); //
+        return msg.reply(`⏳ Bạn đang bị truy nã! Hãy trốn trong nhà thêm **${formatTime(remaining)}** nữa.`);
     }
 
-    // Kiểm tra điều kiện gà của đối phương (tính cả gà khóa)
-    if (enemy.gaCon.length <= 1) return msg.reply("❌ Đối phương chỉ còn 1 con gà duy nhất, không thể trộm!"); //
+    if (enemy.gaCon.length <= 1) return msg.reply("❌ Đối phương chỉ còn 1 con gà duy nhất!");
+    const stealableGa = enemy.gaCon.filter(g => !g.locked);
+    if (stealableGa.length === 0) return msg.reply("❌ Đối phương đã khóa tất cả gà!");
 
-    const stealableGa = enemy.gaCon.filter(g => !g.locked); //
-    if (stealableGa.length === 0) return msg.reply("❌ Đối phương đã khóa tất cả gà, không thể bẻ khóa!"); //
+    u.lastSteal = now; 
+    const secret = Math.floor(10000 + Math.random() * 90000).toString();
+    let attempts = [];
 
-    // Nếu đủ điều kiện, cập nhật thời gian trộm mới nhất ngay lập tức
-    u.lastSteal = now; //
-    
-    const secret = Math.floor(10000 + Math.random() * 90000).toString(); //
-    msg.reply("🕵️ **HỆ THỐNG BẺ KHÓA HIỆN ĐẠI**\n🟢: Đúng | 🟡: Sai chỗ | 🔴: Sai số\n*Bạn có 5 lượt đoán để tẩu thoát!*"); //
+    const generateEmbed = (isFinished = false, statusText = "") => {
+        let description = "🕵️ **HỆ THỐNG BẺ KHÓA AN NINH**\n" +
+                          "🟢: Đúng | 🟡: Sai chỗ | 🔴: Sai số\n\n" +
+                          "**Lịch sử bẻ khóa:**\n";
+
+        if (attempts.length === 0) {
+            description += "_Chưa có lượt đoán nào..._";
+        } else {
+            description += attempts.map((a, i) => `Lượt ${i + 1}: \`${a.guess}\` ➔ ${a.result}`).join("\n");
+        }
+
+        const embed = new EmbedBuilder()
+            .setTitle(isFinished ? "🏁 KẾT THÚC VỤ TRỘM" : "🔐 ĐANG BẺ KHÓA...")
+            .setDescription(description + `\n\n${statusText}`)
+            .setColor(isFinished ? (statusText.includes("THÀNH CÔNG") ? "#2ECC71" : "#E74C3C") : "#F1C40F")
+            .setFooter({ text: isFinished ? "Trò chơi kết thúc" : `Còn ${5 - attempts.length} lượt đoán | Nhập 5 số!` });
+
+        return { embeds: [embed] };
+    };
+
+    const mainMsg = await msg.reply(generateEmbed());
 
     const coll = msg.channel.createMessageCollector({ 
         filter: m => m.author.id === msg.author.id && /^\d{5}$/.test(m.content), 
         time: 60000, 
         max: 5 
-    }); //
+    });
 
     coll.on('collect', async m => {
         const guess = m.content;
@@ -757,7 +773,8 @@ if (msg.content.startsWith(":tromga")) {
         let guessArr = guess.split('');
         let resultArr = Array(5).fill("🔴");
 
-        // Logic so sánh vị trí và màu sắc (như phiên bản trước)
+        try { await m.delete(); } catch (e) {}
+
         for (let i = 0; i < 5; i++) {
             if (guessArr[i] === secretArr[i]) {
                 resultArr[i] = "🟢";
@@ -775,8 +792,8 @@ if (msg.content.startsWith(":tromga")) {
             }
         }
 
-        const visualHint = resultArr.join(" ");
-        const remainingAttempts = 5 - coll.collected.size; //
+        const result = resultArr.join("");
+        attempts.push({ guess, result });
 
         if (guess === secret) {
             const randomIndex = Math.floor(Math.random() * stealableGa.length);
@@ -784,16 +801,29 @@ if (msg.content.startsWith(":tromga")) {
             enemy.gaCon = enemy.gaCon.filter(g => g.id !== s.id);
             u.gaCon.push(s);
 
-            await saveData(msg.author.id); //
-            await saveData(target.id); //
+            await saveData(msg.author.id);
+            await saveData(target.id);
             coll.stop();
-            return m.reply(`🎊 **THÀNH CÔNG!**\n${visualHint}\nBạn đã trộm được **${s.name}** và tẩu thoát an toàn!`); //
-        } else if (remainingAttempts <= 0) {
-            u.coins = Math.max(0, (u.coins || 0) - 200); //
-            await saveData(msg.author.id); //
-            return m.reply(`🚨 **BỊ BẮT!**\n${visualHint}\nMã đúng là **${secret}**. Bạn bị phạt 200 Coins.`); //
-        } else {
-            m.reply(`🔍 **Phân tích:** ${visualHint}\n📉 Còn lại: **${remainingAttempts} lượt**.`); //
+            return await mainMsg.edit(generateEmbed(true, `🎊 **THÀNH CÔNG!**\nMã đúng: \`${secret}\` 🟢🟢🟢🟢🟢\nBạn đã trộm được **${s.name}**!`));
+        } 
+        
+        if (attempts.length >= 5) {
+            u.coins = Math.max(0, (u.coins || 0) - 200);
+            await saveData(msg.author.id);
+            coll.stop();
+            // HIỂN THỊ SỐ ĐÚNG KÈM HIỆU ỨNG ĐỂ GÂY CAY CÚ
+            return await mainMsg.edit(generateEmbed(true, `🚨 **THẤT BẠI!**\nMã đúng là: \`${secret}\` 🟢🟢🟢🟢🟢\nTiếc quá, suýt chút nữa là trộm được gà rồi! Bạn bị phạt 200 Coins.`));
+        }
+
+        await mainMsg.edit(generateEmbed());
+    });
+
+    // Xử lý khi hết thời gian 60s mà không nhập đủ lượt
+    coll.on('end', async (collected, reason) => {
+        if (reason === 'time' && attempts.length < 5) {
+            u.coins = Math.max(0, (u.coins || 0) - 200);
+            await saveData(msg.author.id);
+            await mainMsg.edit(generateEmbed(true, `⏰ **HẾT THỜI GIAN!**\nMã đúng lẽ ra là: \`${secret}\` 🟢🟢🟢🟢🟢\nBạn đứng hình quá lâu nên đã bị cảnh sát tóm!`));
         }
     });
 }
