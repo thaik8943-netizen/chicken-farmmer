@@ -24,7 +24,7 @@ async function spawnShop(msg, client) {
             { name: '⏰ Thời gian', value: `Kết thúc lúc <t:${Math.floor((Date.now() + 15 * 60000) / 1000)}:R>` },
         )
         .setColor(shop.color)
-        .setThumbnail('https://i.imgur.com/8E9p6fS.gif')
+        .setThumbnail('https://media.discordapp.net/attachments/1499736042100621395/1500147295553851565/image0.jpg?ex=69f7608a&is=69f60f0a&hm=bf38bd11c02ef34528208507a2ca5033804f110c05101dcefd452098c51f13cf&=&format=webp&width=1015&height=554')
         .setFooter({ text: 'Nhấn nút bên dưới để mua ngay!', iconURL: msg.author.displayAvatarURL() });
 
     const row = new ActionRowBuilder().addComponents(
