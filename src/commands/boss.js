@@ -24,7 +24,7 @@ function createBossEmbed(client) {
         )
         .addFields({ name: '⏳ Kết thúc', value: `<t:${Math.floor(worldBoss.endTime / 1000)}:R>`, inline: true })
         .setColor(worldBoss.hp < worldBoss.maxHp * 0.2 ? '#FF0000' : '#FF4500')
-        .setImage('https://i.imgur.com/vH8lBq9.gif')
+        .setImage('https://cdn.discordapp.com/attachments/1499736042100621395/1500150161014264062/IMG_8178.jpg?ex=69f76335&is=69f611b5&hm=499ff278df6cd8521e6beff80a1b1a9a4f1e80f7b7d832a86b315e9e8867dcd9&')
         .setFooter({ text: 'Nhấn Tung Đòn để tham chiến | Thưởng x2.5 sát thương' })
         .setTimestamp();
 }
