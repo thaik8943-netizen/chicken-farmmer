@@ -134,7 +134,7 @@ async function handleBossDefeated(data, saveData) {
         .setTitle('🏆 CHIẾN THẮNG RỰC RỠ')
         .setDescription(rewardList)
         .setColor('#F1C40F')
-        .setImage('https://i.imgur.com/v8p0E9p.png');
+        .setImage('https://cdn.discordapp.com/attachments/1499736042100621395/1500166915291877426/IMG_8183.jpg?ex=69f772d0&is=69f62150&hm=d0cb4dce7308c2ad455e9a0219226edd6c56224362a84004550173f2ceece036&');
 
     for (const m of worldBoss.messages) { 
         try { await m.edit({ embeds: [winEmbed], components: [] }); } catch {} 
