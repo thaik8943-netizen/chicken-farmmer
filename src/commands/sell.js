@@ -61,20 +61,33 @@ async function sellTrung(msg, u, saveData) {
 
 // ── :daily ───────────────────────────────────────────────────────
 async function daily(msg, u, saveData, now) {
-    const CD = 7200000;
-    if (now - u.lastDaily < CD) {
-        const left    = CD - (now - u.lastDaily);
-        const minutes = Math.floor(left / 60000);
-        const seconds = Math.floor((left % 60000) / 1000);
-        return msg.reply(`⏳ Bạn đã điểm danh rồi! Quay lại sau **${minutes} phút ${seconds} giây**.`);
+    // 1. Chuyển đổi thời gian hiện tại sang múi giờ Việt Nam (ICT - UTC+7)
+    const vnTime = new Date(new Date().toLocaleString("en-US", {timeZone: "Asia/Ho_Chi_Minh"}));
+    const todayStr = `${vnTime.getDate()}/${vnTime.getMonth() + 1}/${vnTime.getFullYear()}`;
+
+    // 2. Kiểm tra xem người dùng đã điểm danh trong ngày hôm nay chưa
+    // Lưu ý: u.lastDailyDate sẽ lưu chuỗi "ngày/tháng/năm"
+    if (u.lastDailyDate === todayStr) {
+        // Tính toán thời gian còn lại đến 12h đêm (00:00 ngày mai)
+        const tomorrow = new Date(vnTime);
+        tomorrow.setHours(24, 0, 0, 0); // Đặt mốc là 00:00:00 ngày tiếp theo
+        
+        const diff = tomorrow - vnTime;
+        const hours = Math.floor(diff / 3600000);
+        const minutes = Math.floor((diff % 3600000) / 60000);
+
+        return msg.reply(`⏳ Hôm nay bạn đã nhận thóc rồi! Hãy quay lại sau **${hours} giờ ${minutes} phút** (vào lúc 00:00 ngày mai).`);
     }
 
-    u.thoc      = (u.thoc || 0) + 500;
-    u.lastDaily = now;
-    await saveData(msg.author.id);
-    return msg.reply('🌾 **Chúc mừng!** Bạn đã nhận **500 Thóc** cho ngày hôm nay.');
-}
+    // 3. Cập nhật phần thưởng và đánh dấu ngày đã nhận
+    u.thoc = (u.thoc || 0) + 1500;
+    u.lastDailyDate = todayStr; // Lưu dấu ngày theo định dạng VN
+    u.lastDaily = now; // Giữ lại timestamp cũ nếu cần cho việc khác
 
+    await saveData(msg.author.id);
+
+    return msg.reply('🌾 **Điểm danh thành công!** Bạn đã nhận được **1,500 Thóc**. Hẹn gặp lại bạn sau 12h đêm nay!');
+}
 // ── :lockga / :unlockga ──────────────────────────────────────────
 async function lockGa(msg, u, saveData) {
     const isLock   = msg.content.startsWith(':lockga');
