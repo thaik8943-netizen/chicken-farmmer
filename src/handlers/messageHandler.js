@@ -1,5 +1,5 @@
 const { getUser, saveData, data } = require('../database');
-const { EmbedBuilder } = require('discord.js');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 
 // ── Import tất cả command handlers ────────────────────────────────
 const cmdStart      = require('../commands/start');
@@ -73,7 +73,6 @@ module.exports = async function messageHandler(msg, client) {
 };
 
 const { GA_LIST } = require('../../config/constants');
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 
 async function autoHatch(msg, u, now) {
     if (!u.dangAp || u.dangAp.length === 0) return;
