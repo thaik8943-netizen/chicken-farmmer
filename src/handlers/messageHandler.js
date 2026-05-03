@@ -197,5 +197,3 @@ async function autoHatch(msg, u, now) {
         hatchMsg.edit({ components: [] }).catch(() => {});
     });
 }
-
-module.exports = autoHatch;
