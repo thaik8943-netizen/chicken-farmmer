@@ -18,11 +18,11 @@ function nangCap(msg, u) {
         .setThumbnail(botAvatar)
         .setDescription(
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `1️⃣ **Tỉ lệ Trứng (:upga)** - [Lv.${u.lvGa || 0}/10]\n` +
+            `1️⃣ **Tỉ lệ Trứng (:upga)** - [Lv.${u.lvGa || 0}/30]\n` +
             `└ Phí lên Lv.${(u.lvGa || 0) + 1}: **${calcCost(u.lvGa).toLocaleString()} 🪙**\n\n` +
-            `2️⃣ **Kho Thóc (:upthoc)** - [Lv.${u.lvNo || 0}/10]\n` +
+            `2️⃣ **Kho Thóc (:upthoc)** - [Lv.${u.lvNo || 0}/30]\n` +
             `└ Phí lên Lv.${(u.lvNo || 0) + 1}: **${calcCost(u.lvNo).toLocaleString()} 🪙**\n\n` +
-            `3️⃣ **Máy Ấp Trứng (:upaptrung)** - [Lv.${u.lvAp || 0}/10]\n` +
+            `3️⃣ **Máy Ấp Trứng (:upaptrung)** - [Lv.${u.lvAp || 0}/30]\n` +
             `└ Phí lên Lv.${(u.lvAp || 0) + 1}: **${calcCost(u.lvAp).toLocaleString()} 🪙**\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `⚠️ *Giá nâng cấp tăng theo bình phương cấp độ!*`
