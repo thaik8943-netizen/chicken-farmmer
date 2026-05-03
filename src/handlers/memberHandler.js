@@ -1,4 +1,3 @@
-const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 module.exports = async function memberHandler(member) {
     // ID role của bạn
     const AUTO_ROLE_ID = '1499451733888335913';
