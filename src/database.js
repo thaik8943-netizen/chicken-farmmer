@@ -70,10 +70,7 @@ function getUser(id) {
             lastDaily:     0,
             lastSteal:     0,
             lastTrong:     0,
-            isTrongLua: false,
             inventory:     { ve_restart: 0, trung_god: 0, hop_bi_an: 0 },
-            thocDaThu: 0,
-            maxVuMua: 0,
         };
     }
     return data[id];
