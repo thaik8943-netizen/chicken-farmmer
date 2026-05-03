@@ -71,8 +71,6 @@ async function buy(msg, u, saveData) {
     return msg.reply(`✅ Đã mua: **${quantity}x ${name}** | Chi: **${totalCost.toLocaleString()} Coins**`);
 }
 
-const { EmbedBuilder } = require('discord.js');
-
 const formatTime = (ms) => {
     const mins = Math.floor(ms / 60000);
     const secs = Math.floor((ms % 60000) / 1000);
