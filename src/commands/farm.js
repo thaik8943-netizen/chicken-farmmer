@@ -206,3 +206,11 @@ async function thuHoach(msg, u, saveData, now) {
 
     return msg.reply({ embeds: [embed] });
 }
+module.exports = {
+    nangCap,
+    shop,
+    buy,
+    ruong,
+    trongLua,
+    thuHoach
+};
