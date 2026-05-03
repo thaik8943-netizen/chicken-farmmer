@@ -71,20 +71,27 @@ async function buy(msg, u, saveData) {
     return msg.reply(`✅ Đã mua: **${quantity}x ${name}** | Chi: **${totalCost.toLocaleString()} Coins**`);
 }
 
+const { EmbedBuilder } = require('discord.js');
+
+const formatTime = (ms) => {
+    const mins = Math.floor(ms / 60000);
+    const secs = Math.floor((ms % 60000) / 1000);
+    return `${mins}p ${secs}s`;
+};
+
 // ── :ruong ──────────────────────────────────────────────────────
 function ruong(msg, u) {
     if (!u) return;
-    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true });
+    // Lấy Avatar của Bot (size 512 để nét)
+    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true, size: 512 });
 
     if ((u.lvGa || 0) < 4) {
-        return msg.reply({
-            embeds: [
-                new EmbedBuilder()
-                    .setTitle('🔒 KHU VỰC CHƯA KHAI HOANG')
-                    .setDescription('Cánh đồng này hiện đang bị bao phủ bởi sương mù và cỏ dại. Bạn cần đạt **Cấp độ Gà 4** (`:upga`) để có thể bắt đầu canh tác tại đây!')
-                    .setColor('#7F8C8D')
-            ]
-        });
+        const lockEmbed = new EmbedBuilder()
+            .setTitle('🔒 KHU VỰC CHƯA KHAI HOANG')
+            .setDescription('Cánh đồng này hiện đang bị bao phủ bởi sương mù. Bạn cần đạt **Cấp độ Gà 4** (`:upga`) để bắt đầu canh tác!')
+            .setColor('#7F8C8D')
+            .setThumbnail(botAvatar); // Dùng avatar bot
+        return msg.reply({ embeds: [lockEmbed] });
     }
 
     const now = Date.now();
@@ -92,41 +99,37 @@ function ruong(msg, u) {
     const timePassed = now - (u.lastTrong || 0);
     const maxThoc = 500 + (u.lvNo || 0) * 200;
 
-    let status, progress, color, image;
+    let status, progress, color;
     
     if (!u.isTrongLua) {
-        status = '📭 **Đất trống**\nĐất đã được làm tơi xốp, sẵn sàng để gieo hạt.';
+        status = '📭 **Đất trống**\nĐất đã sẵn sàng để gieo hạt.';
         progress = '░░░░░░░░░░ 0%';
         color = '#BDC3C7';
-        image = 'https://cdn-icons-png.flaticon.com/512/2517/2517551.png'; // Icon đất trống
     } else if (timePassed >= CD) {
         status = '🌾 **Lúa chín vàng rực**\nHào quang từ cánh đồng đang mời gọi bạn thu hoạch!';
         progress = '▰▰▰▰▰▰▰▰▰▰ 100%';
         color = '#F1C40F';
-        image = 'https://cdn-icons-png.flaticon.com/512/2328/2328402.png'; // Icon lúa chín
     } else {
         const pct = Math.floor((timePassed / CD) * 100);
         const bars = Math.floor(pct / 10);
         progress = '▰'.repeat(bars) + '▱'.repeat(10 - bars) + ` ${pct}%`;
         status = `🌱 **Lúa đang trổ bông**\nSẽ sẵn sàng sau **${formatTime(CD - timePassed)}**.`;
         color = '#2ECC71';
-        image = 'https://cdn-icons-png.flaticon.com/512/1047/1047535.png'; // Icon lúa lớn
     }
 
     const embed = new EmbedBuilder()
         .setAuthor({ name: '🌾 HỆ THỐNG ĐIỀN TRANG NĂNG SUẤT CAO', iconURL: botAvatar })
         .setTitle('🚜 QUẢN LÝ KHU CANH TÁC')
-        .setThumbnail(image)
+        .setThumbnail(botAvatar) // Dùng avatar bot ở góc nhỏ
         .setColor(color)
         .setDescription(
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `📜 **TRẠNG THÁI HIỆN TẠI**\n${status}\n\n` +
             `📈 **TIẾN ĐỘ SINH TRƯỞNG**\n\`${progress}\`\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `🏗️ **HẠ TẦNG CƠ SỞ (Cấp ${u.lvNo || 0})**\n` +
-            `└ 📦 Sức chứa kho: **${maxThoc.toLocaleString()} Thóc/vụ**\n` +
-            `└ ⚡ Hiệu suất đất: **Ổn định**\n\n` +
-            `💡 *Gợi ý: Sử dụng \`:upthoc\` để mở rộng diện tích ruộng!*`
+            `🏗️ **HẠ TẦNG (Cấp ${u.lvNo || 0})**\n` +
+            `└ 📦 Sức chứa: **${maxThoc.toLocaleString()} Thóc/vụ**\n\n` +
+            `💡 *Gợi ý: Sử dụng \`:upthoc\` để mở rộng diện tích!*`
         )
         .setFooter({ text: `Yêu cầu bởi ${msg.author.username}`, iconURL: msg.author.displayAvatarURL() })
         .setTimestamp();
@@ -136,17 +139,14 @@ function ruong(msg, u) {
 
 // ── :tronglua ────────────────────────────────────────────────────
 async function trongLua(msg, u, saveData, now) {
-    if ((u.lvGa || 0) < 4) return msg.reply('❌ Cần `:upga` Lv.4 để bắt đầu canh tác!');
-    if (u.isTrongLua) return msg.reply('🌾 Ruộng đang có lúa rồi! Hãy đợi chín và gõ `:thuhoach`.');
+    if ((u.lvGa || 0) < 4) return msg.reply('❌ Cần `:upga` Lv.4 để canh tác!');
+    if (u.isTrongLua) return msg.reply('🌾 Ruộng đang có lúa rồi!');
 
+    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true, size: 512 });
     const maxRuong = 500 + (u.lvNo || 0) * 200;
-    const minGiong = Math.floor(maxRuong * 0.1);
-    const maxGiong = Math.floor(maxRuong * 0.2);
-    const thocGiong = Math.floor(Math.random() * (maxGiong - minGiong + 1)) + minGiong;
+    const thocGiong = Math.floor(Math.random() * (maxRuong * 0.2 - maxRuong * 0.1 + 1)) + Math.floor(maxRuong * 0.1);
 
-    if (u.thoc < thocGiong) {
-        return msg.reply(`❌ **Cảnh báo:** Kho dự trữ không đủ! Bạn cần **${thocGiong} thóc** giống để phủ kín cánh đồng này.`);
-    }
+    if (u.thoc < thocGiong) return msg.reply(`❌ Thiếu **${thocGiong - u.thoc} thóc** giống nữa.`);
 
     u.thoc -= thocGiong;
     u.lastTrong = now;
@@ -154,31 +154,26 @@ async function trongLua(msg, u, saveData, now) {
     u.thocGiongDaDung = thocGiong;
 
     await saveData(msg.author.id);
-
+    
     const embed = new EmbedBuilder()
-        .setAuthor({ name: '🌱 KHỞI TẠO VỤ MÙA MỚI', iconURL: 'https://cdn-icons-png.flaticon.com/512/1047/1047535.png' })
-        .setDescription(
-            `Bạn đã tung **${thocGiong.toLocaleString()}** hạt giống lên đất.\n` +
-            `Mưa thuận gió hòa, lúa sẽ chín sau **30 phút** nữa! ✨`
-        )
+        .setTitle('🌱 GIEO HẠT THÀNH CÔNG')
+        .setDescription(`Bạn đã bắt đầu một vụ mùa mới. ⏳ **30 phút** nữa lúa sẽ chín!`)
         .setColor('#3498DB')
-        .setFooter({ text: 'Hãy thường xuyên kiểm tra :ruong' });
+        .setThumbnail(botAvatar); // Dùng avatar bot
 
     return msg.reply({ embeds: [embed] });
 }
 
 // ── :thuhoach ────────────────────────────────────────────────────
 async function thuHoach(msg, u, saveData, now) {
-    if (!u.isTrongLua) return msg.reply('❌ Ruộng đang trống, hãy gõ `:tronglua` trước!');
+    if (!u.isTrongLua) return msg.reply('❌ Ruộng đang trống!');
 
     const CD = 30 * 60 * 1000;
-    const timePassed = now - (u.lastTrong || 0);
-
-    if (timePassed < CD) {
-        const remaining = CD - timePassed;
-        return msg.reply(`⏳ **Lúa chưa chín!** Bạn cần chờ thêm **${formatTime(remaining)}** để hạt lúa đạt độ chắc mẩy nhất.`);
+    if (now - (u.lastTrong || 0) < CD) {
+        return msg.reply(`⏳ Lúa chưa chín! Chờ thêm **${formatTime(CD - (now - u.lastTrong))}**.`);
     }
 
+    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true, size: 512 });
     const maxThoc = 500 + (u.lvNo || 0) * 200;
     const minThu = Math.max(Math.floor(maxThoc * 0.7), (u.thocGiongDaDung || 0) * 2);
     const thuAmount = Math.floor(Math.random() * (maxThoc - minThu + 1)) + minThu;
@@ -191,17 +186,17 @@ async function thuHoach(msg, u, saveData, now) {
     await saveData(msg.author.id);
 
     const embed = new EmbedBuilder()
-        .setAuthor({ name: '🎊 VỤ MÙA BỘI THU!', iconURL: 'https://g-70.pcloud.com/dHZdofzXZ9VXZ7Z8ZZ5bZZu4A7Zf5Zb0ZH7Z75Z50Z3HZa0ZV0ZE7ZfFZD0ZE0Z3HZa0ZV0ZfHZa0ZV0ZE7ZfXZ67Z5fP6D76DkS67S8T9R0T9R0S6S8S7S6S8S7S6S8S7S6S8S7/image_6ab480.jpg' })
+        .setAuthor({ name: '🎊 VỤ MÙA BỘI THU!', iconURL: botAvatar })
         .setTitle('🧺 KẾT QUẢ THU HOẠCH')
         .setColor('#F1C40F')
-        .setThumbnail('https://g-70.pcloud.com/dHZdofzXZ9VXZ7Z8ZZ5bZZu4A7Zf5Zb0ZH7Z75Z50Z3HZa0ZV0ZE7ZfFZD0ZE0Z3HZa0ZV0ZfHZa0ZV0ZE7ZfXZ67Z5fP6D76DkS67S8T9R0T9R0S6S8S7S6S8S7S6S8S7S6S8S7/image_6ab480.jpg')
+        .setImage(botAvatar) // Hiển thị avatar bot thành ảnh to bên dưới
         .setDescription(
             `Cánh đồng của bạn đã được gặt hái xong!\n\n` +
             `💰 Tổng thu: **+${thuAmount.toLocaleString()} Thóc**\n` +
-            `📈 Lợi nhuận ròng: **+${loiNhuan.toLocaleString()} Thóc**\n\n` +
-            `🚀 *Sản lượng đã được chuyển thẳng vào kho dự trữ.*`
+            `📈 Lợi nhuận: **+${loiNhuan.toLocaleString()} Thóc**\n\n` +
+            `🚀 *Sản lượng đã chuyển vào kho dự trữ.*`
         )
-        .setFooter({ text: 'Đất đang nghỉ ngơi, có thể gieo vụ tiếp theo ngay!' });
+        .setFooter({ text: 'Đất đang nghỉ ngơi, có thể gieo vụ tiếp theo!' });
 
     return msg.reply({ embeds: [embed] });
 }
