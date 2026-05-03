@@ -117,118 +117,115 @@ function getReadyThoc(u, now) {
 function ruong(msg, u) {
     if (!u) return;
     const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true, size: 512 });
-    const now = Date.now();
-    const thocReady = getReadyThoc(u, now);
-    const alreadyTaken = u.thocDaThu || 0;
-    const totalPossible = u.maxVuMua || 0;
 
-    let status, color, progress;
+    if ((u.lvGa || 0) < 4) {
+        const lockEmbed = new EmbedBuilder()
+            .setTitle('🔒 KHU VỰC CHƯA KHAI HOANG')
+            .setDescription('Bạn cần đạt **Cấp độ Gà 4** (`:upga`) để mở khóa cánh đồng này!')
+            .setColor('#7F8C8D')
+            .setThumbnail(botAvatar);
+        return msg.reply({ embeds: [lockEmbed] });
+    }
+
+    const now = Date.now();
+    const CD = 30 * 60 * 1000;
+    const timePassed = now - (u.lastTrong || 0);
+    const maxThoc = 500 + (u.lvNo || 0) * 200;
+
+    let status, progress, color;
     if (!u.isTrongLua) {
-        status = '📭 **ĐẤT HOANG**\nHãy gieo hạt để bắt đầu chu kỳ sản xuất!';
-        color = '#7F8C8D';
+        status = '📭 **Đất trống**\nSẵn sàng gieo hạt.';
         progress = '░░░░░░░░░░ 0%';
+        color = '#BDC3C7';
+    } else if (timePassed >= CD) {
+        status = '🌾 **Lúa chín vàng rực**\nHãy thu hoạch ngay!';
+        progress = '▰▰▰▰▰▰▰▰▰▰ 100%';
+        color = '#F1C40F';
     } else {
-        const pct = totalPossible > 0 ? Math.min(100, Math.floor(((alreadyTaken + thocReady) / totalPossible) * 100)) : 0;
+        const pct = Math.floor((timePassed / CD) * 100);
         const bars = Math.floor(pct / 10);
         progress = '▰'.repeat(bars) + '▱'.repeat(10 - bars) + ` ${pct}%`;
-        
-        if (alreadyTaken + thocReady >= totalPossible) {
-            status = '⚠️ **VỤ MÙA CẠN KIỆT**\nĐất đã hết dưỡng chất, thu hoạch để gieo vụ mới!';
-            color = '#E74C3C';
-        } else if (thocReady >= 100) {
-            status = '🌾 **LÚA CHÍN DẦN**\nCó thể thu hoạch một phần ngay bây giờ.';
-            color = '#F1C40F';
-        } else {
-            status = '🌱 **ĐANG SINH TRƯỞNG**\nMỗi 10 phút sẽ chín thêm 100 thóc.';
-            color = '#2ECC71';
-        }
+        status = `🌱 **Lúa đang lớn**\nChín sau: **${formatTime(CD - timePassed)}**.`;
+        color = '#2ECC71';
     }
 
     const embed = new EmbedBuilder()
         .setAuthor({ name: '🌾 QUẢN LÝ ĐIỀN TRANG', iconURL: botAvatar })
-        .setColor(color)
         .setThumbnail(botAvatar)
+        .setColor(color)
         .setDescription(
             `━━━━━━━━━━━━━━━━━━━━\n` +
             `📜 **TRẠNG THÁI**: ${status}\n` +
-            `💰 **SẢN LƯỢNG CHÍN**: \`${thocReady.toLocaleString()}\` Thóc\n` +
-            `📈 **TIẾN ĐỘ VỤ MÙA**: \`${progress}\`\n` +
-            `📦 **TỔNG THU HOẠCH**: \`${alreadyTaken.toLocaleString()} / ${totalPossible.toLocaleString()}\`\n` +
+            `📈 **TIẾN ĐỘ**: \`${progress}\`\n` +
             `━━━━━━━━━━━━━━━━━━━━\n` +
-            `🏗️ **HẠ TẦNG**: Kho Cấp ${u.lvNo || 0}\n` +
-            `└ ⚡ Tốc độ: **100 Thóc / 10 phút**`
+            `🏗️ **HẠ TẦNG**: Cấp ${u.lvNo || 0}\n` +
+            `└ 📦 Kho: **${maxThoc.toLocaleString()} Thóc**`
         )
-        .setFooter({ text: `Nông dân: ${msg.author.username} | Dùng :tronglua [số lượng] để gieo hạt` });
+        .setFooter({ text: `Nông dân: ${msg.author.username}`, iconURL: msg.author.displayAvatarURL() });
 
     return msg.reply({ embeds: [embed] });
 }
 
 // ── :tronglua ────────────────────────────────────────────────────
 async function trongLua(msg, u, saveData, now) {
-    if ((u.lvGa || 0) < 4) return msg.reply('❌ Cần đạt **Cấp độ Gà 4** (`:upga`) để khai hoang đất!');
-    if (u.isTrongLua) return msg.reply('🌾 Đất đang có lúa! Hãy thu hoạch sạch vụ này trước khi gieo mới.');
+    if ((u.lvGa || 0) < 4) return msg.reply('❌ Cần `:upga` Lv.4!');
+    if (u.isTrongLua) return msg.reply('🌾 Đất đã có lúa!');
 
-    const args = msg.content.split(' ');
-    const amountToSow = parseInt(args[1]);
+    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true, size: 512 });
+    const maxRuong = 500 + (u.lvNo || 0) * 200;
+    const thocGiong = Math.floor(Math.random() * (maxRuong * 0.2 - maxRuong * 0.1 + 1)) + Math.floor(maxRuong * 0.1);
 
-    if (!amountToSow || amountToSow <= 0) {
-        return msg.reply('❓ Bạn muốn gieo bao nhiêu thóc giống? Ví dụ: `:tronglua 500`.\n💡 Kiếm thóc tại `:daily` hoặc mua ở `:shop`.');
-    }
+    if (u.thoc < thocGiong) return msg.reply(`❌ Thiếu **${(thocGiong - u.thoc).toLocaleString()} thóc** giống.`);
 
-    if (u.thoc < amountToSow) {
-        return msg.reply(`❌ Bạn không đủ thóc giống! Hiện có: **${u.thoc.toLocaleString()}**.\n🛒 Ghé ngay \`:shop\` để sắm thêm!`);
-    }
-
-    // Giới hạn gieo tối đa dựa trên cấp độ Kho
-    const maxSowLimit = 1000 + (u.lvNo || 0) * 500; 
-    if (amountToSow > maxSowLimit) {
-        return msg.reply(`⚠️ Kho của bạn chỉ hỗ trợ gieo tối đa **${maxSowLimit.toLocaleString()}** thóc mỗi vụ!`);
-    }
-
-    u.thoc -= amountToSow;
+    u.thoc -= thocGiong;
     u.lastTrong = now;
     u.isTrongLua = true;
-    u.thocDaThu = 0; 
-    u.maxVuMua = amountToSow * 3; // Lợi nhuận x3 vốn
+    u.thocGiongDaDung = thocGiong;
 
     await saveData(msg.author.id);
-
+    
     const embed = new EmbedBuilder()
-        .setTitle('🌱 GIEO HẠT THÀNH CÔNG')
-        .setDescription(`Bạn đã đầu tư **${amountToSow.toLocaleString()}** thóc giống.\n🚀 Vụ mùa này hứa hẹn mang về **${u.maxVuMua.toLocaleString()}** thóc!`)
-        .setColor('#3498DB');
+        .setAuthor({ name: '🌱 GIEO HẠT THÀNH CÔNG', iconURL: botAvatar })
+        .setDescription(`Bạn đã gieo **${thocGiong.toLocaleString()}** thóc giống.\n⏳ Chờ 30 phút để thu hoạch!`)
+        .setColor('#3498DB')
+        .setThumbnail(botAvatar);
 
     return msg.reply({ embeds: [embed] });
 }
 
 // ── :thuhoach ────────────────────────────────────────────────────
 async function thuHoach(msg, u, saveData, now) {
-    if (!u.isTrongLua) return msg.reply('❌ Đất trống, chưa có gì để thu hoạch cả!');
-    
-    const thocReady = getReadyThoc(u, now);
-    if (thocReady < 100) return msg.reply('⏳ Lúa chưa đủ chín! Chờ ít nhất 10 phút để có 100 hạt đầu tiên.');
+    if (!u.isTrongLua) return msg.reply('❌ Đất trống!');
+    const CD = 30 * 60 * 1000;
+    if (now - (u.lastTrong || 0) < CD) return msg.reply('⏳ Lúa chưa chín!');
 
-    u.thoc += thocReady;
-    u.thocDaThu = (u.thocDaThu || 0) + thocReady;
-    u.lastTrong = now; // Reset mốc thời gian để mọc lúa mới
+    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true, size: 512 });
+    const maxThoc = 500 + (u.lvNo || 0) * 200;
+    const minThu = Math.max(Math.floor(maxThoc * 0.7), (u.thocGiongDaDung || 0) * 2);
+    const thuAmount = Math.floor(Math.random() * (maxThoc - minThu + 1)) + minThu;
+    const loiNhuan = thuAmount - (u.thocGiongDaDung || 0);
 
-    let resultMsg = `💰 Bạn đã thu hoạch được **+${thocReady.toLocaleString()} Thóc**!`;
-
-    // Nếu đã lấy hết sản lượng tối đa của vụ gieo
-    if (u.thocDaThu >= (u.maxVuMua || 0)) {
-        u.isTrongLua = false;
-        u.thocDaThu = 0;
-        u.maxVuMua = 0;
-        resultMsg += `\n✨ **Vụ mùa kết thúc!** Bạn đã khai thác hết tiềm năng của đợt gieo này.`;
-    }
-
+    u.thoc += thuAmount;
+    u.isTrongLua = false;
+    u.thocGiongDaDung = 0;
     await saveData(msg.author.id);
 
     const embed = new EmbedBuilder()
-        .setAuthor({ name: '🎊 MÙA VÀNG BỘI THU', iconURL: msg.client.user.displayAvatarURL() })
-        .setDescription(resultMsg)
+        .setAuthor({ name: '🎊 VỤ MÙA BỘI THU!', iconURL: botAvatar })
         .setColor('#F1C40F')
-        .setFooter({ text: 'Sử dụng :ruong để kiểm tra tình hình điền trang' });
+        .setImage(botAvatar)
+        .setDescription(
+            `💰 Tổng thu: **+${thuAmount.toLocaleString()} Thóc**\n` +
+            `📈 Lợi nhuận: **+${loiNhuan.toLocaleString()} Thóc**`
+        );
 
     return msg.reply({ embeds: [embed] });
 }
+module.exports = {
+    nangCap,
+    shop,
+    buy,
+    ruong,
+    trongLua,
+    thuHoach
+};
