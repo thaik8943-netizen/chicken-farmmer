@@ -72,37 +72,42 @@ module.exports = async function messageHandler(msg, client) {
     if (content === ':help')                                      return cmdHelp(msg, u, client);
 };
 
-// ── Auto-hatch logic ──────────────────────────────────────────────
 const { GA_LIST } = require('../../config/constants');
+const { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ComponentType } = require('discord.js');
 
 async function autoHatch(msg, u, now) {
     if (!u.dangAp || u.dangAp.length === 0) return;
 
+    const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true });
     const hatched = [];
+    const currentLv = Math.min(u.lvUpApTrung || 0, 30); 
+    const bonus = (currentLv * 2) / 30; 
+
+    // --- LOGIC NỞ TRỨNG (GIỮ NGUYÊN) ---
     u.dangAp = u.dangAp.filter(e => {
         if (now < e.finishAt) return true;
-
         for (let i = 0; i < e.amount; i++) {
             const r = Math.random() * 100;
-            let selectedRarity = 'Common ⚪';
-
+            let selectedRarity = '';
             if (e.type === 'vang') {
-                if (r < 0.01)      selectedRarity = 'Legendary 🟡';
-                else if (r < 1.01) selectedRarity = 'Epic 🟣';
-                else if (r < 16)   selectedRarity = 'Rare 🔵';
+                if (r < (0.01 + bonus)) selectedRarity = 'Legendary 🟡';
+                else if (r < (1.01 + bonus * 1.2)) selectedRarity = 'Epic 🟣';
+                else if (r < (16 + bonus * 1.5)) selectedRarity = 'Rare 🔵';
+                else selectedRarity = 'Common ⚪';
             } else if (e.type === 'bac') {
-                if (r < 0.001)    selectedRarity = 'Legendary 🟡';
-                else if (r < 0.1) selectedRarity = 'Epic 🟣';
-                else if (r < 8)   selectedRarity = 'Rare 🔵';
+                if (r < (0.001 + bonus)) selectedRarity = 'Legendary 🟡';
+                else if (r < (0.1 + bonus)) selectedRarity = 'Epic 🟣';
+                else if (r < (8 + bonus)) selectedRarity = 'Rare 🔵';
+                else selectedRarity = 'Common ⚪';
             } else {
-                if (r < 1) selectedRarity = 'Rare 🔵';
+                if (r < (0.01 + bonus * 0.1)) selectedRarity = 'Epic 🟣'; 
+                else if (r < (1 + bonus)) selectedRarity = 'Rare 🔵';
+                else selectedRarity = 'Common ⚪';
             }
-
             const pureRarity = selectedRarity.split(' ')[0];
             let pool = GA_LIST.filter(g => g.rarity.includes(pureRarity));
             if (!pool.length) pool = GA_LIST.filter(g => g.rarity.includes('Common'));
             const g = pool[Math.floor(Math.random() * pool.length)];
-
             const STATS = {
                 'Common ⚪':    { hp: [50, 100],       price: [10, 30] },
                 'Rare 🔵':      { hp: [200, 400],      price: [200, 500] },
@@ -112,41 +117,86 @@ async function autoHatch(msg, u, now) {
             const s = STATS[selectedRarity];
             const rand = (a, b) => Math.floor(Math.random() * (b - a + 1)) + a;
             hatched.push({
-                ...g,
-                id:     Date.now() + Math.random(),
-                locked: false,
-                rarity: selectedRarity,
-                hp:     rand(s.hp[0], s.hp[1]),
-                price:  rand(s.price[0], s.price[1]),
+                ...g, id: Date.now() + Math.random(), locked: false, rarity: selectedRarity,
+                hp: rand(s.hp[0], s.hp[1]), price: rand(s.price[0], s.price[1]),
             });
         }
-        return false;
+        return false; 
     });
 
     if (hatched.length === 0) return;
-
     u.gaCon.push(...hatched);
     await saveData(msg.author.id);
 
-    const hasLegendary = hatched.some(g => g.rarity.includes('Legendary'));
-    const hasEpic      = hatched.some(g => g.rarity.includes('Epic'));
-    const desc = hatched.map(g =>
-        `**${g.name}** \`${g.rarity}\`\n└ ❤️ HP: \`${g.hp}\` | 💰 Giá: \`${g.price.toLocaleString()}\``
-    ).join('\n\n');
+    // --- LOGIC PHÂN TRANG (PAGINATION) ---
+    const itemsPerPage = 5;
+    const totalPages = Math.ceil(hatched.length / itemsPerPage);
+    let currentPage = 0;
 
-    const embed = new EmbedBuilder().setTimestamp();
+    const generateEmbed = (page) => {
+        const start = page * itemsPerPage;
+        const end = start + itemsPerPage;
+        const currentItems = hatched.slice(start, end);
 
-    if (hasLegendary) {
-        embed.setTitle('✨ NGUYÊN TỬ LỰC: HUYỀN THOẠI GIÁNG TRẦN! ✨')
-             .setColor('#f1c40f')
-             .setThumbnail('https://i.imgur.com/8E9p6fS.gif')
-             .setDescription(`🎊 Chúc mừng bạn đã phá vỡ mọi giới hạn!\n\n${desc}`);
-        return msg.reply({ content: `🌟 **THÔNG BÁO CHẤN ĐỘNG!** <@${msg.author.id}>`, embeds: [embed] });
-    }
-    if (hasEpic) {
-        embed.setTitle('🟣 SIÊU CẤP XUẤT HIỆN!').setColor('#9b59b6').setDescription(desc);
-        return msg.reply({ embeds: [embed] });
-    }
-    embed.setTitle('🐣 KẾT QUẢ ẤP TRỨNG').setColor('#2ecc71').setDescription(desc);
-    msg.reply({ embeds: [embed] });
+        const desc = currentItems.map((g, i) => 
+            `**${start + i + 1}. ${g.name}** \`${g.rarity}\`\n└ ❤️ HP: \`${g.hp}\` | 💰 Giá: \`${g.price.toLocaleString()}\``
+        ).join('\n\n');
+
+        const hasLegendary = hatched.some(g => g.rarity.includes('Legendary'));
+        const color = hasLegendary ? '#F1C40F' : '#2ECC71';
+
+        return new EmbedBuilder()
+            .setTitle(hasLegendary ? '✨ KẾT QUẢ ẤP TRỨNG HUYỀN THOẠI ✨' : '🐣 KẾT QUẢ ẤP TRỨNG')
+            .setDescription(desc || '_Không có dữ liệu_')
+            .setColor(color)
+            .setThumbnail(botAvatar)
+            .setFooter({ text: `Trang ${page + 1}/${totalPages} | Kỹ năng: Cấp ${currentLv} (+${bonus.toFixed(2)}%)` })
+            .setTimestamp();
+    };
+
+    const generateButtons = (page) => {
+        return new ActionRowBuilder().addComponents(
+            new ButtonBuilder()
+                .setCustomId('prev')
+                .setLabel('◀️')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(page === 0),
+            new ButtonBuilder()
+                .setCustomId('next')
+                .setLabel('▶️')
+                .setStyle(ButtonStyle.Primary)
+                .setDisabled(page === totalPages - 1)
+        );
+    };
+
+    const hatchMsg = await msg.reply({
+        embeds: [generateEmbed(0)],
+        components: totalPages > 1 ? [generateButtons(0)] : []
+    });
+
+    if (totalPages <= 1) return;
+
+    // Bộ thu thập nút bấm (Collector)
+    const collector = hatchMsg.createMessageComponentCollector({
+        componentType: ComponentType.Button,
+        time: 60000 // Nút bấm tồn tại trong 60 giây
+    });
+
+    collector.on('collect', async (i) => {
+        if (i.user.id !== msg.author.id) return i.reply({ content: '❌ Đây không phải phi vụ của bạn!', ephemeral: true });
+
+        if (i.customId === 'prev') currentPage--;
+        else if (i.customId === 'next') currentPage++;
+
+        await i.update({
+            embeds: [generateEmbed(currentPage)],
+            components: [generateButtons(currentPage)]
+        });
+    });
+
+    collector.on('end', () => {
+        hatchMsg.edit({ components: [] }).catch(() => {});
+    });
 }
+
+module.exports = autoHatch;
