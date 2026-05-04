@@ -1,3 +1,5 @@
+const { EmbedBuilder } = require('discord.js');
+
 module.exports = async function cmdFeed(msg, u, saveData) {
     const args = msg.content.split(' ');
     // Tính toán số lượng cho ăn
