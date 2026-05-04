@@ -158,7 +158,6 @@ async function autoHatch(msg, u, now) {
             .setDescription(`━━━━━━━━━━━━━━━━━━━━\n${desc || '_Không có dữ liệu_'}\n━━━━━━━━━━━━━━━━━━━━`)
             .setColor(hasLegendary ? '#F1C40F' : '#2ECC71')
             .setThumbnail(botAvatar)
-            .setImage(serverIcon)
             .setFooter({ text: `Trang ${page + 1}/${totalPages} • Kỹ năng Máy ấp: Lv.${currentLv} (+${bonus.toFixed(2)}% Luck)` })
             .setTimestamp();
     };
