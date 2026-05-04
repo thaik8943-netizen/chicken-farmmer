@@ -79,7 +79,7 @@ async function autoHatch(msg, u, now) {
 
     const botAvatar = msg.client.user.displayAvatarURL({ dynamic: true });
     const hatched = [];
-    const currentLv = Math.min(u.lvUpApTrung || 0, 30); 
+    const currentLv = Math.min(u.lvAp || 0, 30); 
     const bonus = (currentLv * 2) / 30; 
 
     // --- LOGIC NỞ TRỨNG (GIỮ NGUYÊN) ---
